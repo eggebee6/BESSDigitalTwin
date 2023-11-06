@@ -4,6 +4,9 @@ function [ds_out] = dtinfo_ds_transform(ds_in)
     gp = global_params();
   end
   
+  % Get data from input datastore
+  ds_in = ds_in{1};
+
   % Scale data
   ds_in(1:3) = ds_in(1:3) ./ gp.iLf_err_scale;
   ds_in(4:6) = ds_in(4:6) ./ gp.vCf_err_scale;
