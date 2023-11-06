@@ -39,9 +39,6 @@ monitor.console_update_iterations = 25;
 
 % Check for GUI interface
 fprintf('Has graphical interface: %s\n', mat2str(has_gui));
-if (has_gui)
-  monitor.gui_monitor = create_gui_monitor();
-end
 
 % Check for GPUs
 gpus_available = gpuDeviceCount("available");
@@ -139,6 +136,11 @@ epoch_count = 20;
 
 epoch = 0;
 iteration = 0;
+
+% Create GUI monitor if GUI is available
+if (has_gui)
+  monitor.gui_monitor = create_gui_monitor();
+end
 
 % Start training
 fprintf('Starting training, %s\n', datetime());
