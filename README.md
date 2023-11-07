@@ -18,9 +18,12 @@ This project is based on a [Simulink](https://www.mathworks.com/products/simulin
 
 To maximize resilience (the ability to "deliver power where it's needed, when it's needed, even in degraded or damaged conditions"), the agent should make recommendations on which actions the BESS should take.  For example, in response to a disturbance in the nanogrid, the agent could recommend whether the BESS should continue operating in grid-following mode or should switch to grid-forming mode.  The agent should be adaptable and should improve its operation over time by learning from its own experiences (i.e. its observations made post-deployment).  The deep learing models being developed here are intended to explore various AI/ML applications to be used by digital twins in power systems, especially in the context of resilience.
 
+### Miscellaneous
 This project is being done with the [Center for Sustainable Electric Energy Systems](https://sites.uwm.edu/sees/) (CSEES) at the [University of Wisconsin - Milwaukee](https://uwm.edu/).  Additional support has been provided by the UWM [High Performance Computing](https://uwm.edu/hpc/) (HPC) group.
 
 The CSEES GitHub page is available at https://github.com/UWM-SEES
+
+Active development of this project should be compatible with MATLAB R2022a
 
 ---
 ### References
