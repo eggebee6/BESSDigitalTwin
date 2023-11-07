@@ -56,7 +56,7 @@ gp = global_params();
 
 %% Set up datastore
 % Initialize scenario labels
-DTInfo.initialize_scenario_labels(training_data_dir);
+num_actions = DTInfo.initialize_scenario_labels(training_data_dir);
 
 if (gpus_available > 0)
   mini_batch_size = floor(gp.samples_per_cycle / gp.min_sequence_len) * 256;
@@ -129,7 +129,7 @@ else
   model_params.encoder_hidden_size = gp.num_features * 4;
   model_params.latent_dims = gp.num_features;
 
-  model_params.label_count = DTInfo.get_scenario_label_count();
+  model_params.label_count = num_actions;
   
   % Create model
   [model, training_params] = create_resnet(model_params);

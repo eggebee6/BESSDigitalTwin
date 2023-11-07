@@ -1,6 +1,6 @@
 classdef DTInfo
   properties (Constant)
-      scenario_label_map = containers.Map;
+      scenario_action_map = containers.Map;
   end
 
   methods (Static)
@@ -199,29 +199,32 @@ classdef DTInfo
       data = dlarray(data, 'CBT');
     end
 
-    function initialize_scenario_labels(training_data_dir)
+    function [action_count] = initialize_scenario_labels(training_data_dir)
     % Read scenario names from training data folder and create one-hot encoded labels
       scenario_names = dir(training_data_dir);
       scenario_names = {scenario_names.name};
       scenario_names = scenario_names(~ismember(scenario_names, {'.', '..'}));
       scenario_names = string(scenario_names);
 
-      label_map = DTInfo.scenario_label_map;
-      for n = scenario_names
-        label_map(n) = onehotencode(n, 1, 'ClassNames', scenario_names);
+      action_values = cellfun(@(c) scenario_action(c), scenario_names);
+      action_values = string(unique(action_values));
+      action_count = length(action_values);
+
+      % Clear map
+      action_map = DTInfo.scenario_action_map;
+      action_map.remove(action_map.keys);
+
+      % Initialize map with action for each scenario
+      for name = scenario_names
+        action = string(scenario_action(name));
+        action_map(name) = onehotencode(action, 1, 'ClassNames', action_values);
       end
     end
 
     function [label] = get_scenario_label(scenario_name)
     % Get the one-hot encoded label for the scenario name
-      label_map = DTInfo.scenario_label_map;
-      label = label_map(scenario_name);
-    end
-
-    function [count] = get_scenario_label_count()
-    % Get the number of scenario labels being used
-      label_map = DTInfo.scenario_label_map;
-      count = label_map.Count;
+      action_map = DTInfo.scenario_action_map;
+      label = action_map(scenario_name);
     end
     
   end
