@@ -1,4 +1,8 @@
 classdef DTInfo
+  properties (Constant)
+      scenario_label_map = containers.Map;
+  end
+
   methods (Static)
     function [dt_info] = read_dt_info(filename)
     % Read DT data from a saved MAT file
@@ -179,6 +183,25 @@ classdef DTInfo
       data = DTInfo.get_all_err(dt_info)';
       data = reshape(data, [size(data, 1), 1, size(data, 2)]);
       data = dlarray(data, 'CBT');
+    end
+
+    function initialize_scenario_labels(training_data_dir)
+    % Read scenario names from training data folder and create one-hot encoded labels
+      scenario_names = dir(training_data_dir);
+      scenario_names = {scenario_names.name};
+      scenario_names = scenario_names(~ismember(scenario_names, {'.', '..'}));
+      scenario_names = string(scenario_names);
+
+      label_map = DTInfo.scenario_label_map;
+      for n = scenario_names
+        label_map(n) = onehotencode(n, 1, 'ClassNames', scenario_names);
+      end
+    end
+
+    function [label] = get_scenario_label(scenario_name)
+    % Get the one-hot encoded label for the scenario name
+      label_map = DTInfo.scenario_label_map;
+      label = label_map(scenario_name);
     end
     
   end

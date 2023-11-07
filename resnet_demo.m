@@ -55,12 +55,10 @@ end
 gp = global_params();
 
 %% Set up datastore
-mini_batch_size = ceil(gp.samples_per_cycle / gp.min_sequence_len) * gp.strides_per_sequence;
-if (gpus_available > 0)
-  mini_batch_size = mini_batch_size * 10;
-else
-  mini_batch_size = mini_batch_size * 2;
-end
+% Initialize scenario labels
+DTInfo.initialize_scenario_labels(training_data_dir);
+
+mini_batch_size = floor(gp.samples_per_cycle / gp.min_sequence_len) * 256;
 
 fprintf('Initializing datastores, %s\n', datetime());
 tic;
@@ -90,12 +88,12 @@ validation_ds = transform(validation_ds, ...
 
 % Create minibatch queues
 training_batch_queue = minibatchqueue(training_ds, ...
-  'MiniBatchFormat', {'CTB'}, ...
+  'MiniBatchFormat', {'CTB', 'CB'}, ...
   'MiniBatchSize', mini_batch_size, ...
   'PartialMiniBatch', 'discard');
 
 validation_batch_queue = minibatchqueue(validation_ds, ...
-  'MiniBatchFormat', {'CTB'}, ...
+  'MiniBatchFormat', {'CTB', 'CB'}, ...
   'MiniBatchSize', mini_batch_size, ...
   'PartialMiniBatch', 'discard');
 
@@ -186,7 +184,7 @@ try
       training_params.iteration = iteration;
   
       % Evaluate and update model with a training batch
-      batch = next(training_batch_queue);
+      [batch, labels] = next(training_batch_queue);
 
       [losses, grads, training_params] = dlfeval(model_eval_cb, model, batch, training_params);
       [model, training_params] = model_update_cb(model, losses, grads, training_params);

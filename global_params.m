@@ -25,9 +25,10 @@ function [gp] = global_params()
     params.iLo_err_scale = 1;
 
     % Minimum number of samples needed for sequence processing
-    params.min_sequence_len = floor(params.samples_per_cycle / 8);
+    % Must be divisible by the model total downsampling
+    params.min_sequence_len = 16 * floor(params.samples_per_cycle / 16);
     
-    params.strides_per_sequence = 4;
+    params.strides_per_sequence = 8;
     
   end
   gp = params;
