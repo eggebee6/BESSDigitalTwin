@@ -30,7 +30,8 @@ end
 % Initialize monitor
 monitor.name = 'Training monitor';
 monitor.gui_monitor = [];
-monitor.csv_file = fullfile(output_dir, 'training.csv');
+monitor.training_csv_file = fullfile(output_dir, 'training.csv');
+monitor.validation_csv_file = fullfile(output_dir, 'validation.csv');
 monitor.losses = [];
 monitor.epoch = 0;
 monitor.iteration = 0;
@@ -147,11 +148,14 @@ training_params.kl_loss_factor = 1;
 
 training_params.min_recon_loss = 10000;
 
-% Initialize output
+% Initialize output, counters, etc.
 create_output_dir();
 
 checkpoint_iteration_count = 1000;
 checkpoint_counter = 0;
+
+validation_iteration_count = 3;
+validation_counter = 0;
 
 % Initialize training loop values
 epoch_count = 20;
@@ -196,6 +200,18 @@ try
       monitor.iteration = iteration;
       monitor.losses = losses;
       monitor = update_monitor(monitor);
+
+      % Test performance on validation data
+      if (validation_counter > 0)
+        validation_counter = validation_counter - 1;
+      else
+        % Reset counter
+        validation_counter = validation_iteration_count - 1;
+        
+        validation_batch = next(validation_batch_queue);
+        perform_validation(model_eval_cb, model, ...
+          validation_batch, training_params, monitor);
+      end
   
       % Perform checkpoint operations
       if (checkpoint_counter > 0)
@@ -294,10 +310,10 @@ function monitor = update_monitor(monitor)
     fprintf('%s', csv_line);
 
     % Write CSV to file
-    if ~isempty(monitor.csv_file)
+    if ~isempty(monitor.training_csv_file)
       csv_file_id = [];
       try
-        csv_file_id = fopen(monitor.csv_file, 'a');
+        csv_file_id = fopen(monitor.training_csv_file, 'a');
         fwrite(csv_file_id, csv_line);
       catch ex
         fprintf('[%s] ERROR: Failed to write to CSV file: %s\n%s\n', ...
@@ -310,6 +326,47 @@ function monitor = update_monitor(monitor)
       if ~isempty(csv_file_id)
         fclose(csv_file_id);
       end
+    end
+  end
+end
+
+function [validation_losses] = perform_validation(model_eval_cb, model, batch, training_params, monitor)
+  % Get losses from evaluation function
+  [validation_losses, ~, ~] = dlfeval(model_eval_cb, model, batch, training_params);
+
+  % Display validation info
+  fprintf('[%s] Validation loss: %f\n  Recon: %f\n  KL: %f\n', ...
+    datetime(), ...
+    extractdata(validation_losses.total_loss), ...
+    extractdata(validation_losses.recon_loss), ...
+    extractdata(validation_losses.kl_loss));
+
+  % CSV format:
+  % time, epoch, iteration, total loss, recon loss, KL loss
+  csv_line = sprintf('%s, %d, %d, %f, %f, %f\n', ...
+    datetime(), ...
+    monitor.epoch, ...
+    monitor.iteration, ...
+    extractdata(monitor.losses.total_loss), ...
+    extractdata(monitor.losses.recon_loss), ...
+    extractdata(monitor.losses.kl_loss));
+
+  % Write CSV to file
+  if ~isempty(monitor.validation_csv_file)
+    csv_file_id = [];
+    try
+      csv_file_id = fopen(monitor.validation_csv_file, 'a');
+      fwrite(csv_file_id, csv_line);
+    catch ex
+      fprintf('[%s] ERROR: Failed to write to CSV file: %s\n%s\n', ...
+        datetime(), ...
+        ex.identifier, ...
+        ex.message);
+      % TODO: Ignore this exception or do something else with it?
+    end
+
+    if ~isempty(csv_file_id)
+      fclose(csv_file_id);
     end
   end
 end
