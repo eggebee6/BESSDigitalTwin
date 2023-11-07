@@ -57,7 +57,7 @@ gp = global_params();
 %% Set up datastore
 mini_batch_size = ceil(gp.samples_per_cycle / gp.min_sequence_len) * gp.strides_per_sequence;
 if (gpus_available > 0)
-  mini_batch_size = mini_batch_size * 40;
+  mini_batch_size = mini_batch_size * 10;
 else
   mini_batch_size = mini_batch_size * 2;
 end
@@ -72,18 +72,14 @@ ds_fileset = matlab.io.datastore.DsFileSet(training_data_dir, ...
 ds_source = fileDatastore(ds_fileset, ...
   'ReadFcn', @dtinfo_ds_reader);
 
-% Create an 80/20 split for training/validation
-% TODO: Is there a more elegant way to do this?
-training_ds = combine(...
-  partition(ds_source, 5, 1), ...
-  partition(ds_source, 5, 2), ...
-  partition(ds_source, 5, 3), ...
-  partition(ds_source, 5, 4), ...
-  'ReadOrder', 'sequential');
+num_ds_files = size(ds_source.Files, 1);
 
-validation_ds = combine(...
-  partition(ds_source, 5, 5), ...
-  'ReadOrder', 'sequential');
+% Create an 80/20 split for training/validation
+ds_shuffle = randperm(num_ds_files);
+ds_split_index = round(0.8 * num_ds_files);
+
+training_ds = subset(ds_source, ds_shuffle(1:ds_split_index));
+validation_ds = subset(ds_source, ds_shuffle(ds_split_index+1:end));
 
 % Add transform functions to datastores
 training_ds = transform(training_ds, ...
@@ -154,7 +150,7 @@ create_output_dir();
 checkpoint_iteration_count = 1000;
 checkpoint_counter = 0;
 
-validation_iteration_count = 3;
+validation_iteration_count = 1000;
 validation_counter = 0;
 
 % Initialize training loop values
@@ -347,9 +343,9 @@ function [validation_losses] = perform_validation(model_eval_cb, model, batch, t
     datetime(), ...
     monitor.epoch, ...
     monitor.iteration, ...
-    extractdata(monitor.losses.total_loss), ...
-    extractdata(monitor.losses.recon_loss), ...
-    extractdata(monitor.losses.kl_loss));
+    extractdata(validation_losses.total_loss), ...
+    extractdata(validation_losses.recon_loss), ...
+    extractdata(validation_losses.kl_loss));
 
   % Write CSV to file
   if ~isempty(monitor.validation_csv_file)
