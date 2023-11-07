@@ -203,6 +203,12 @@ classdef DTInfo
       label_map = DTInfo.scenario_label_map;
       label = label_map(scenario_name);
     end
+
+    function [count] = get_scenario_label_count()
+    % Get the number of scenario labels being used
+      label_map = DTInfo.scenario_label_map;
+      count = label_map.Count;
+    end
     
   end
 end

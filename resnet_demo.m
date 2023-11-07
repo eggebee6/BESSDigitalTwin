@@ -58,7 +58,11 @@ gp = global_params();
 % Initialize scenario labels
 DTInfo.initialize_scenario_labels(training_data_dir);
 
-mini_batch_size = floor(gp.samples_per_cycle / gp.min_sequence_len) * 256;
+if (gpus_available > 0)
+  mini_batch_size = floor(gp.samples_per_cycle / gp.min_sequence_len) * 256;
+else
+  mini_batch_size = 8;    % TODO: This is a small value for test purposes only
+end
 
 fprintf('Initializing datastores, %s\n', datetime());
 tic;
@@ -88,12 +92,12 @@ validation_ds = transform(validation_ds, ...
 
 % Create minibatch queues
 training_batch_queue = minibatchqueue(training_ds, ...
-  'MiniBatchFormat', {'CTB', 'CB'}, ...
+  'MiniBatchFormat', {'CTB', 'CTB', 'CTB', 'CB'}, ...
   'MiniBatchSize', mini_batch_size, ...
   'PartialMiniBatch', 'discard');
 
 validation_batch_queue = minibatchqueue(validation_ds, ...
-  'MiniBatchFormat', {'CTB', 'CB'}, ...
+  'MiniBatchFormat', {'CTB', 'CTB', 'CTB', 'CB'}, ...
   'MiniBatchSize', mini_batch_size, ...
   'PartialMiniBatch', 'discard');
 
@@ -124,6 +128,8 @@ else
 
   model_params.encoder_hidden_size = gp.num_features * 4;
   model_params.latent_dims = gp.num_features;
+
+  model_params.label_count = DTInfo.get_scenario_label_count();
   
   % Create model
   [model, training_params] = create_resnet(model_params);
@@ -184,9 +190,9 @@ try
       training_params.iteration = iteration;
   
       % Evaluate and update model with a training batch
-      [batch, labels] = next(training_batch_queue);
+      [error_vectors, measurements, vgrid, labels] = next(training_batch_queue);
 
-      [losses, grads, training_params] = dlfeval(model_eval_cb, model, batch, training_params);
+      [losses, grads, training_params] = dlfeval(model_eval_cb, model, error_vectors, training_params);
       [model, training_params] = model_update_cb(model, losses, grads, training_params);
     
       % Update monitor
