@@ -1,4 +1,4 @@
-function demo_model(model, error_vectors, predict_full_sequence)
+function [fig] = demo_model(model, error_vectors, predict_full_sequence)
   arguments
     model = [];
     error_vectors = [];
