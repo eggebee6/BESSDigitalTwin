@@ -1,4 +1,9 @@
-function demo_model(model, data)
+function demo_model(model, data, predict_full_sequence)
+  arguments
+    model = [];
+    data = [];
+    predict_full_sequence = false;
+  end
   gp = global_params();
   
   dim_C = 1;
@@ -16,26 +21,35 @@ function demo_model(model, data)
   data(4:6) = data(4:6) ./ gp.vCf_err_scale;
   data(7:9) = data(7:9) ./ gp.iLo_err_scale;
 
-  % Split data into sequences, getting prediction for each one
-  num_sequences = floor(size_T / gp.min_sequence_len);
-  if (num_sequences < 1)
-    error('Input sequence length is too short');
-  end
-
-  start_index = 1;
-  recon_data = dlarray(zeros(size_C, size_B, size_T));
-  for i = 1:num_sequences
-    end_index = start_index + gp.min_sequence_len - 1;
-
-    % Forward data through model
-    encoder_output = predict(model.encoder, data(:, :, start_index:end_index));
+  if (predict_full_sequence)
+    % Pass entire sequence through model
+    encoder_output = predict(model.encoder, data);
     latent_sample = predict(model.latent_sampler, encoder_output);
     decoder_output = predict(model.decoder, latent_sample);
 
-    % Add predictions to overall reconstruction
-    recon_data(:, :, start_index:end_index) = decoder_output;
-
-    start_index = start_index + gp.min_sequence_len;
+    recon_data = decoder_output;
+  else
+    % Split data into sequences, getting prediction for each one
+    num_sequences = floor(size_T / gp.min_sequence_len);
+    if (num_sequences < 1)
+      error('Input sequence length is too short');
+    end
+  
+    start_index = 1;
+    recon_data = dlarray(zeros(size_C, size_B, size_T));
+    for i = 1:num_sequences
+      end_index = start_index + gp.min_sequence_len - 1;
+  
+      % Forward data through model
+      encoder_output = predict(model.encoder, data(:, :, start_index:end_index));
+      latent_sample = predict(model.latent_sampler, encoder_output);
+      decoder_output = predict(model.decoder, latent_sample);
+  
+      % Add predictions to overall reconstruction
+      recon_data(:, :, start_index:end_index) = decoder_output;
+  
+      start_index = start_index + gp.min_sequence_len;
+    end
   end
 
   % Reshape for convenience
