@@ -178,9 +178,23 @@ classdef DTInfo
       name = strs(end);
     end
 
-    function [data] = get_input_dlarray(dt_info)
-    % Get the data formatted for use by neural networks with CBT format
+    function [data] = get_err_dlarray(dt_info)
+    % Get the error vectors in CBT format
       data = DTInfo.get_all_err(dt_info)';
+      data = reshape(data, [size(data, 1), 1, size(data, 2)]);
+      data = dlarray(data, 'CBT');
+    end
+
+    function [data] = get_meas_dlarray(dt_info)
+    % Get the measurements in CBT format
+      data = DTInfo.get_all_meas(dt_info)';
+      data = reshape(data, [size(data, 1), 1, size(data, 2)]);
+      data = dlarray(data, 'CBT');
+    end
+
+    function [data] = get_vgrid_dlarray(dt_info)
+    % Get the grid voltages in CBT format
+      data = DTInfo.get_vgrid(dt_info)';
       data = reshape(data, [size(data, 1), 1, size(data, 2)]);
       data = dlarray(data, 'CBT');
     end
