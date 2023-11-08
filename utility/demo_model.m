@@ -1,7 +1,8 @@
-function [fig] = demo_model(model, error_vectors, predict_full_sequence)
+function [fig] = demo_model(model, error_vectors, action, predict_full_sequence)
   arguments
     model = [];
     error_vectors = [];
+    action = [];
     predict_full_sequence = false;
   end
   gp = global_params();
@@ -26,8 +27,14 @@ function [fig] = demo_model(model, error_vectors, predict_full_sequence)
     encoder_output = predict(model.encoder, error_vectors);
     latent_sample = predict(model.latent_sampler, encoder_output);
     decoder_output = predict(model.decoder, latent_sample);
+    action_output = predict(model.action_recommender, latent_sample);
 
+    % Get reconstruction from decoder output
     recon_data = decoder_output;
+
+    % Repeat action for plot purposes
+    [~, max_action] = max(action_output);
+    action_data = repmat(max_action, 1, size_B, size_T);
   else
     % Split data into sequences, getting prediction for each one
     num_sequences = floor(size_T / gp.min_sequence_len);
@@ -37,6 +44,7 @@ function [fig] = demo_model(model, error_vectors, predict_full_sequence)
   
     start_index = 1;
     recon_data = dlarray(zeros(size_C, size_B, size_T));
+    action_data = dlarray(zeros(1, size_B, size_T));
     for i = 1:num_sequences
       end_index = start_index + gp.min_sequence_len - 1;
   
@@ -44,9 +52,14 @@ function [fig] = demo_model(model, error_vectors, predict_full_sequence)
       encoder_output = predict(model.encoder, error_vectors(:, :, start_index:end_index));
       latent_sample = predict(model.latent_sampler, encoder_output);
       decoder_output = predict(model.decoder, latent_sample);
+      action_output = predict(model.action_recommender, latent_sample);
   
-      % Add predictions to overall reconstruction
+      % Add decoder output to overall reconstruction
       recon_data(:, :, start_index:end_index) = decoder_output;
+
+      % Repeat action for plot purposes
+      [~, max_action] = max(action_output);
+      action_data(:, :, start_index:end_index) = repmat(max_action, 1, size_B, end_index - start_index + 1);
   
       start_index = start_index + gp.min_sequence_len;
     end
@@ -55,6 +68,10 @@ function [fig] = demo_model(model, error_vectors, predict_full_sequence)
   % Reshape for convenience
   error_vectors = reshape(error_vectors, [size_C size_T]);
   recon_data = reshape(recon_data, [size(recon_data, 1) size(recon_data, 3)]);
+  action_data = reshape(action_data, [size(action_data, 1) size(action_data, 3)]);
+
+  [~, max_action] = max(action);
+  action = repmat(max_action, 1, size_T);
 
   % Truncate data ranges to shorter length
   max_len = min([size(error_vectors, 2), size(recon_data, 2)]);
@@ -95,8 +112,10 @@ function [fig] = demo_model(model, error_vectors, predict_full_sequence)
   ]);
   y_lim_ilo = [0 extractdata(y_lim_ilo)];
 
+  y_lim_action = [0 10];    % TODO: [0 model.label_count]
+
   % Create plots
-  fig = tiledlayout(3, 1);
+  fig = tiledlayout(4, 1);
 
   % Plot iLf error
   nexttile;
@@ -151,5 +170,17 @@ function [fig] = demo_model(model, error_vectors, predict_full_sequence)
   title('Lo error');
   xlabel('Time (s)');
   ylabel('Current (A)');
+
+  % Plot actions
+  nexttile;
+  hold on;
+  plot(...
+    x_range, action_data(1, :)', 'go', ...
+    x_range, action(1, :)', 'b.');
+  xlim('tight');
+  ylim(y_lim_action);
+  title('Recommended action');
+  xlabel('Time (s)');
+  ylabel('Action')
 
 end

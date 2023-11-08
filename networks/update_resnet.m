@@ -33,6 +33,22 @@ try
     error('Bad decoder weights after update');
   end
 
+  % Debug stuff
+  if check_learnables(model.action_recommender.Learnables)
+    error('Bad action recommender weights before update');
+  end
+
+  % Update action recommender
+  [model.action_recommender, training_params.act_grad_avg, training_params.act_grad_avg2] = adamupdate(...
+    model.action_recommender, grads.action_recommender, ...
+    training_params.act_grad_avg, training_params.act_grad_avg2, ...
+    training_params.iteration, training_params.learn_rate);
+
+  % Debug stuff
+  if check_learnables(model.action_recommender.Learnables)
+    error('Bad action recommender weights after update');
+  end
+
 catch ex
   save('update_debug.mat', ...
     'model', 'losses', 'grads', 'training_params');

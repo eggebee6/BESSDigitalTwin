@@ -14,6 +14,7 @@ function [model, training_params] = create_resnet(model_params)
   model.latent_dims = latent_dims;
   model.total_downsampling = total_downsampling;
   model.min_sequence_len = gp.min_sequence_len;
+  model.label_count = model_params.label_count;
 
 
   %% Create encoder
@@ -191,18 +192,44 @@ function [model, training_params] = create_resnet(model_params)
   decoder_lgraph = connectLayers(decoder_lgraph, 'dec_add2', 'dec_tconv_out');
 
 
-  %% Create discriminator
+  %% Add action predictor
+  action_lgraph = layerGraph();
+  action_lgraph = addLayers(action_lgraph, [...
+    sequenceInputLayer(latent_dims, 'Name', 'sc_input', ...
+      'Normalization', 'none')
+
+    fullyConnectedLayer(latent_dims * 8, 'Name', 'sc_fc1')
+    tanhLayer('Name', 'sc_tanh1')
+
+    gruLayer(latent_dims * 4, 'Name', 'sc_gru', ...
+      'OutputMode', 'last')
+    tanhLayer('Name', 'sc_tanh_gru')
+
+    fullyConnectedLayer(latent_dims * 2, 'Name', 'sc_fc2')
+    tanhLayer('Name', 'sc_tanh2')
+
+    fullyConnectedLayer(model_params.label_count, 'Name', 'sc_fc3')    
+    softmaxLayer('Name', 'sc_output')
+  ]);
 
   %% Assemble the model
   % Put all the networks into the model struct
   model.encoder = dlnetwork(encoder_lgraph);
   model.latent_sampler = dlnetwork(latent_sampler_lgraph);
   model.decoder = dlnetwork(decoder_lgraph);
+  model.action_recommender = dlnetwork(action_lgraph);
 
   %% Set default training parameters
   training_params.enc_grad_avg = [];
   training_params.enc_grad_avg2 = [];
   training_params.dec_grad_avg = [];
   training_params.dec_grad_avg2 = [];
+
+  training_params.act_grad_avg = [];
+  training_params.act_grad_avg2 = [];
+
+  training_params.recon_loss_factor = 1;
+  training_params.kl_loss_factor = 1;
+  training_params.action_loss_factor = 1;
 
 end
