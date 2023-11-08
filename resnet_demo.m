@@ -59,7 +59,7 @@ gp = global_params();
 num_actions = DTInfo.initialize_scenario_labels(training_data_dir);
 
 if (gpus_available > 0)
-  mini_batch_size = floor(gp.samples_per_cycle / gp.min_sequence_len) * 256;
+  mini_batch_size = floor(gp.samples_per_cycle / gp.min_sequence_len) * 128;
 else
   mini_batch_size = 8;    % TODO: This is a small value for test purposes only
 end
@@ -144,6 +144,8 @@ training_params.learn_rate = 2e-4;
 training_params.monte_carlo_reps = 3;
 
 training_params.min_recon_loss = 10000;
+
+training_params.action_loss_factor = 1 / num_actions;
 
 % Initialize output, counters, etc.
 create_output_dir();

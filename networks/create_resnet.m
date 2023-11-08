@@ -197,20 +197,41 @@ function [model, training_params] = create_resnet(model_params)
   action_lgraph = addLayers(action_lgraph, [...
     sequenceInputLayer(latent_dims, 'Name', 'sc_input', ...
       'Normalization', 'none')
+  ]);
 
-    fullyConnectedLayer(latent_dims * 8, 'Name', 'sc_fc1')
-    tanhLayer('Name', 'sc_tanh1')
+  % Add upsampling
+  incoming_connection_name = 'sc_input';
+  for i = num_res_blocks:-1:1
+    conv_name = sprintf('sc_tconv_us%d', i);
+    conv_act_name = sprintf('sc_relu_us%d', i);
 
-    gruLayer(latent_dims * 4, 'Name', 'sc_gru', ...
-      'OutputMode', 'last')
-    tanhLayer('Name', 'sc_tanh_gru')
+    action_lgraph = addLayers(action_lgraph, [...
+      transposedConv1dLayer(3, gp.num_features, 'Name', conv_name, ...
+        'Cropping', 'same', ...
+        'Stride', 2)
+      reluLayer('Name', conv_act_name)
+    ]);
+    action_lgraph = connectLayers(action_lgraph, incoming_connection_name, conv_name);
 
-    fullyConnectedLayer(latent_dims * 2, 'Name', 'sc_fc2')
-    tanhLayer('Name', 'sc_tanh2')
+    incoming_connection_name = conv_act_name;
+  end
+
+  action_lgraph = addLayers(action_lgraph, [...
+    maxPooling1dLayer(5, 'Name', 'sc_pool', ...
+      'Padding', 'same', ...
+      'Stride', 1);
+
+    gruLayer(gp.num_features * 2, 'Name', 'sc_gru', ...
+      'OutputMode', 'sequence')
+    reluLayer('Name', 'sc_relu_gru')
+
+    fullyConnectedLayer(gp.num_features * 4, 'Name', 'sc_fc1')
+    reluLayer('Name', 'sc_relu_fc1')
 
     fullyConnectedLayer(model_params.label_count, 'Name', 'sc_fc3')    
     softmaxLayer('Name', 'sc_output')
   ]);
+  action_lgraph = connectLayers(action_lgraph, incoming_connection_name, 'sc_pool');
 
   %% Assemble the model
   % Put all the networks into the model struct

@@ -33,11 +33,10 @@ function [fig] = demo_model(model, error_vectors, action, predict_full_sequence)
     recon_data = decoder_output;
 
     % Repeat action for plot purposes
-    [~, max_action] = max(action_output);
-    action_data = repmat(max_action, 1, size_B, size_T);
+    [~, action_data] = max(action_output);
   else
     % Split data into sequences, getting prediction for each one
-    num_sequences = floor(size_T / gp.min_sequence_len);
+    num_sequences = floor(size_T / gp.min_sequence_len) - 1;
     if (num_sequences < 1)
       error('Input sequence length is too short');
     end
@@ -59,7 +58,7 @@ function [fig] = demo_model(model, error_vectors, action, predict_full_sequence)
 
       % Repeat action for plot purposes
       [~, max_action] = max(action_output);
-      action_data(:, :, start_index:end_index) = repmat(max_action, 1, size_B, end_index - start_index + 1);
+      action_data(:, :, start_index:end_index) = max_action;
   
       start_index = start_index + gp.min_sequence_len;
     end
@@ -71,12 +70,13 @@ function [fig] = demo_model(model, error_vectors, action, predict_full_sequence)
   action_data = reshape(action_data, [size(action_data, 1) size(action_data, 3)]);
 
   [~, max_action] = max(action);
-  action = repmat(max_action, 1, size_T);
+  action = repmat(max_action, size_B, size_T);
 
   % Truncate data ranges to shorter length
-  max_len = min([size(error_vectors, 2), size(recon_data, 2)]);
+  max_len = min([size(error_vectors, 2), size(recon_data, 2), size(action_data, 2)]);
   error_vectors = error_vectors(:, 1:max_len);
   recon_data = recon_data(:, 1:max_len);
+  action_data = action_data(:, 1:max_len);
 
   % Rescale data
   recon_data(1:3, :) = recon_data(1:3, :) .* gp.iLf_err_scale;
@@ -175,8 +175,8 @@ function [fig] = demo_model(model, error_vectors, action, predict_full_sequence)
   nexttile;
   hold on;
   plot(...
-    x_range, action_data(1, :)', 'go', ...
-    x_range, action(1, :)', 'b.');
+    x_range, action_data(1, :)', 'b.', ...
+    x_range, action(1, :)', 'g-');
   xlim('tight');
   ylim(y_lim_action);
   title('Recommended action');

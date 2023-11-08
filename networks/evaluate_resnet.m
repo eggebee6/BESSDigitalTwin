@@ -22,6 +22,8 @@ try
 
   latent_dims = model.latent_dims;
 
+  labels = dlarray(repmat(labels, 1, 1, size_T), 'CBT');
+
 %% Encode input
   encoder_output = forward(model.encoder, error_vectors);
 
@@ -84,8 +86,7 @@ try
     end
 
     % Calculate action loss and reset state
-    action_loss = action_loss + crossentropy(action_output, labels, ...
-      'Reduction', 'sum');
+    action_loss = action_loss + crossentropy(action_output, labels);
 
     % Debug stuff
     if ~isfinite(action_loss)
