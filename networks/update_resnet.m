@@ -2,9 +2,9 @@ function [model, training_params] = update_resnet(model, losses, grads, training
 %% Update network
 try
   % Debug stuff
-  if check_learnables(model.encoder.Learnables)
-    error('Bad encoder weights before update');
-  end
+  %if check_learnables(model.encoder.Learnables)
+  %  error('Bad encoder weights before update');
+  %end
 
   % Update encoder
   [model.encoder, training_params.enc_grad_avg, training_params.enc_grad_avg2] = adamupdate(...
@@ -13,14 +13,14 @@ try
     training_params.iteration, training_params.learn_rate);
 
   % Debug stuff
-  if check_learnables(model.encoder.Learnables)
-    error('Bad encoder weights after update');
-  end
+  %if check_learnables(model.encoder.Learnables)
+  %  error('Bad encoder weights after update');
+  %end
 
   % Debug stuff
-  if check_learnables(model.decoder.Learnables)
-    error('Bad decoder weights before update');
-  end
+  %if check_learnables(model.decoder.Learnables)
+  %  error('Bad decoder weights before update');
+  %end
 
   % Update decoder
   [model.decoder, training_params.dec_grad_avg, training_params.dec_grad_avg2] = adamupdate(...
@@ -29,25 +29,25 @@ try
     training_params.iteration, training_params.learn_rate);
 
   % Debug stuff
-  if check_learnables(model.decoder.Learnables)
-    error('Bad decoder weights after update');
-  end
+  %if check_learnables(model.decoder.Learnables)
+  %  error('Bad decoder weights after update');
+  %end
 
   % Debug stuff
-  if check_learnables(model.action_recommender.Learnables)
-    error('Bad action recommender weights before update');
-  end
+  %if check_learnables(model.action_recommender.Learnables)
+  %  error('Bad action recommender weights before update');
+  %end
 
-  % Update action recommender
-  [model.action_recommender, training_params.act_grad_avg, training_params.act_grad_avg2] = adamupdate(...
-    model.action_recommender, grads.action_recommender, ...
-    training_params.act_grad_avg, training_params.act_grad_avg2, ...
-    training_params.iteration, training_params.learn_rate);
+% Update action recommender
+%[model.action_recommender, training_params.act_grad_avg, training_params.act_grad_avg2] = adamupdate(...
+%  model.action_recommender, grads.action_recommender, ...
+%  training_params.act_grad_avg, training_params.act_grad_avg2, ...
+%  training_params.iteration, training_params.learn_rate);
 
   % Debug stuff
-  if check_learnables(model.action_recommender.Learnables)
-    error('Bad action recommender weights after update');
-  end
+  %if check_learnables(model.action_recommender.Learnables)
+  %  error('Bad action recommender weights after update');
+  %end
 
 catch ex
   save('update_debug.mat', ...

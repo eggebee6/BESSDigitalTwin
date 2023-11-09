@@ -59,7 +59,7 @@ gp = global_params();
 num_actions = DTInfo.initialize_scenario_labels(training_data_dir);
 
 if (gpus_available > 0)
-  mini_batch_size = floor(gp.samples_per_cycle / gp.min_sequence_len) * 128;
+  mini_batch_size = floor(gp.samples_per_cycle / gp.min_sequence_len) * 192;
 else
   mini_batch_size = 8;    % TODO: This is a small value for test purposes only
 end
@@ -122,17 +122,17 @@ if isfile('debug_model.mat')
 else
   % Set model parameters
   model_params.filter_size = 3;
-  model_params.num_filters = gp.num_features * 16;
+  %model_params.num_filters = gp.num_features * 4;
   
-  model_params.num_res_blocks = 4;
+  model_params.num_res_blocks = 5;
 
-  model_params.encoder_hidden_size = gp.num_features * 4;
-  model_params.latent_dims = gp.num_features;
+  model_params.encoder_hidden_size = gp.num_features * 16;
+  model_params.latent_dims = 6;
 
   model_params.label_count = num_actions;
   
   % Create model
-  [model, training_params] = create_resnet(model_params);
+  [model, training_params] = create_resnet2(model_params);
 end
 
 model_eval_cb = @evaluate_resnet;
@@ -143,9 +143,9 @@ model_update_cb = @update_resnet;
 training_params.learn_rate = 2e-4;
 training_params.monte_carlo_reps = 3;
 
-training_params.min_recon_loss = 10000;
+training_params.using_gpu = gpus_available > 0;
 
-training_params.action_loss_factor = 1 / num_actions;
+training_params.min_recon_loss = 10000;
 
 % Initialize output, counters, etc.
 create_output_dir();
@@ -153,7 +153,7 @@ create_output_dir();
 checkpoint_iteration_count = 1000;
 checkpoint_counter = 0;
 
-validation_iteration_count = 1000;
+validation_iteration_count = 250;
 validation_counter = 0;
 
 % Initialize training loop values

@@ -5,8 +5,8 @@ function [ds_out] = dtinfo_ds_transform(ds_in)
   end
   
   ds_err = ds_in{1};
-  ds_meas = ds_in{2};
-  ds_vgrid = ds_in{3} ./ gp.voltage_pu;   % TODO: This should be done in the DT reader
+  %ds_meas = ds_in{2};
+  %ds_vgrid = ds_in{3} ./ gp.voltage_pu;   % TODO: This should be done in the DT reader
   ds_label = DTInfo.get_scenario_label(ds_in{4});
 
   % Scale data
@@ -28,8 +28,8 @@ function [ds_out] = dtinfo_ds_transform(ds_in)
 
     % Copy measurements and errors into training sample
     ds_out{i, 1} = ds_err(:, rand_start:end_index);
-    ds_out{i, 2} = ds_meas(:, rand_start:end_index);
-    ds_out{i, 3} = ds_vgrid(:, rand_start:end_index);
+    %ds_out{i, 2} = ds_meas(:, rand_start:end_index);
+    %ds_out{i, 3} = ds_vgrid(:, rand_start:end_index);
     ds_out{i, 4} = ds_label;
 
     % Increment start index to next sample window

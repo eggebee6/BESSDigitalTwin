@@ -5,6 +5,7 @@ function [losses, grads, training_params] = evaluate_resnet(model, error_vectors
   encoder_output = [];
   latent_sample = [];
   decoder_output = [];
+  action_output = [];
 
   % Debug stuff
   debug_max_loss = 1e20;
@@ -22,15 +23,16 @@ try
 
   latent_dims = model.latent_dims;
 
-  labels = dlarray(repmat(labels, 1, 1, size_T), 'CBT');
+%labels = dlarray(repmat(labels, [1 1 size_T]), 'CBT');
+  
 
 %% Encode input
   encoder_output = forward(model.encoder, error_vectors);
 
   % Debug stuff
-  if (any(~isfinite(encoder_output), 'all'))
-    error('Bad value in network output');
-  end
+  %if (any(~isfinite(encoder_output), 'all'))
+  %  error('Bad value in network output');
+  %end
 
   % First half of encoder output is means, second half is logvars
   encoder_means = encoder_output(1:latent_dims, :, :);
@@ -44,11 +46,11 @@ try
     -sum(log(encoder_vars), 1) ...
   );
 
-  if any(~isfinite(kl_loss), 'all')
-    error('Bad value in KL loss calculation');
-  elseif any(kl_loss < 0, 'all')
-    error('Negative in KL loss calculation');
-  end
+  %if any(~isfinite(kl_loss), 'all')
+  %  error('Bad value in KL loss calculation');
+  %elseif any(kl_loss < 0, 'all')
+  %  error('Negative in KL loss calculation');
+  %end
 
   % Average KL losses across time and across entire batch
   kl_loss = mean(kl_loss, dim_T);
@@ -65,35 +67,39 @@ try
     % Reconstruct output
     decoder_output = forward(model.decoder, latent_sample);
 
-    % Get action
-    action_output = forward(model.action_recommender, latent_sample);
-    model.action_recommender = resetState(model.action_recommender);    % TODO: Is this necessary?
+% Get action
+%action_output = forward(model.action_recommender, latent_sample);
+%action_output = action_output(:, :, end);
+%action_output = reshape(action_output, [size(action_output, 1) size(action_output, 2)]);
+%action_output = dlarray(action_output, 'CB');
+
+%model.action_recommender = resetState(model.action_recommender);
 
     % Debug stuff
-    if (any(~isfinite(latent_sample), 'all') || ...
-        any(~isfinite(decoder_output), 'all'))
-      error('Bad value in network outputs');
-    end
+    %if (any(~isfinite(latent_sample), 'all') || ...
+    %    any(~isfinite(decoder_output), 'all'))
+    %  error('Bad value in network outputs');
+    %end
   
     % Calculate reconstruction loss
     recon_loss = recon_loss + mse(decoder_output, error_vectors);
 
     % Debug stuff
-    if ~isfinite(recon_loss)
-      error('Bad value in reconstruction loss');
-    elseif (recon_loss < 0)
-      error('Negative in reconstruction loss');
-    end
+    %if ~isfinite(recon_loss)
+    %  error('Bad value in reconstruction loss');
+    %elseif (recon_loss < 0)
+    %  error('Negative in reconstruction loss');
+    %end
 
-    % Calculate action loss and reset state
-    action_loss = action_loss + crossentropy(action_output, labels);
+% Calculate action loss and reset state
+%action_loss = action_loss + crossentropy(action_output, labels);
 
     % Debug stuff
-    if ~isfinite(action_loss)
-      error('Bad value in action loss');
-    elseif (action_loss < 0)
-      error('Negative in action loss');
-    end
+    %if ~isfinite(action_loss)
+    %  error('Bad value in action loss');
+    %elseif (action_loss < 0)
+    %  error('Negative in action loss');
+    %end
   end
 
   recon_loss = recon_loss ./ monte_carlo_reps;
@@ -115,7 +121,8 @@ try
   losses.kl_loss = kl_loss * training_params.kl_loss_factor;
 
   % Get action loss
-  losses.action_loss = action_loss * training_params.action_loss_factor;
+%losses.action_loss = action_loss * training_params.action_loss_factor;
+  losses.action_loss = dlarray(0);
   
   % Calculate total loss
   losses.total_loss = ...
