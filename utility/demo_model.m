@@ -1,8 +1,8 @@
-function [fig] = demo_model(model, testing_data, action, predict_full_sequence)
+function [fig] = demo_model(model, testing_data, correct_action, predict_full_sequence)
   arguments
     model = [];
     testing_data = [];
-    action = [];
+    correct_action = [];
     predict_full_sequence = false;
   end
   gp = global_params();
@@ -69,9 +69,6 @@ function [fig] = demo_model(model, testing_data, action, predict_full_sequence)
   recon_data = reshape(recon_data, [size(recon_data, 1) size(recon_data, 3)]);
   action_data = reshape(action_data, [size(action_data, 1) size(action_data, 3)]);
 
-  [~, max_action] = max(action);
-  action = repmat(max_action, size_B, size_T);
-
   % Truncate data ranges to shorter length
   max_len = min([size(testing_data, 2), size(recon_data, 2), size(action_data, 2)]);
   testing_data = testing_data(:, 1:max_len);
@@ -114,13 +111,39 @@ function [fig] = demo_model(model, testing_data, action, predict_full_sequence)
   ]);
   y_lim_ilo = [0 extractdata(y_lim_ilo)];
 
-  y_lim_action = [0 10];    % TODO: [0 model.label_count]
+  y_lim_action = [0 model.label_count];
 
   % Create plots
-  fig = tiledlayout(4, 1);
+  fig = tiledlayout(4, 2);
+
+  % Plot action recommendation histograms
+  rec_hist = histcounts(extractdata(action_data), 1:model.label_count+1) ./ size_T;
+
+  nexttile;
+  bar([rec_hist', correct_action]);
+  yline(max(rec_hist), ':');
+  ylim([0 1]);
+  title('Recommendations');
+  xlabel('Recommendation');
+  ylabel('Action');
+  legend('Recommended', 'Correct', ...
+    'Location', 'northeastoutside');
+
+  % Plot action recommendations over time
+  [~, max_action] = max(correct_action);
+
+  nexttile;
+  plot(...
+    x_range, action_data(1, :)', '.', ...
+    x_range, repmat(max_action, size_B, size_T)', '-');
+  xlim('tight');
+  ylim(y_lim_action);
+  title('Recommendations over time');
+  xlabel('Time (s)');
+  ylabel('Action')
 
   % Plot iLf error
-  nexttile;
+  nexttile([1 2]);
   hold on;
   data_range = 1:3;
   plot(...
@@ -138,7 +161,7 @@ function [fig] = demo_model(model, testing_data, action, predict_full_sequence)
   ylabel('Current (A)');
 
   % Plot vCf error
-  nexttile;
+  nexttile([1 2]);
   hold on;
   data_range = 4:6;
   plot(...
@@ -156,7 +179,7 @@ function [fig] = demo_model(model, testing_data, action, predict_full_sequence)
   ylabel('Voltage (V)');
 
   % Plot iLo error
-  nexttile;
+  nexttile([1 2]);
   hold on;
   data_range = 7:9;
   plot(...
@@ -172,17 +195,5 @@ function [fig] = demo_model(model, testing_data, action, predict_full_sequence)
   title('Lo error');
   xlabel('Time (s)');
   ylabel('Current (A)');
-
-  % Plot actions
-  nexttile;
-  hold on;
-  plot(...
-    x_range, action_data(1, :)', 'b.', ...
-    x_range, action(1, :)', 'g-');
-  xlim('tight');
-  ylim(y_lim_action);
-  title('Recommended action');
-  xlabel('Time (s)');
-  ylabel('Action')
 
 end
