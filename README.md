@@ -25,6 +25,8 @@ The CSEES GitHub page is available at https://github.com/UWM-SEES
 
 Active development of this project should be compatible with MATLAB R2022a
 
+A [wiki page](https://github.com/eggebee6/BESSDigitalTwin/wiki) is under construction to provide more information on this project.
+
 ---
 ### References
 [1] A. Eggebeen, M. Vygoder, G. Oriti, J. Gudex, A. L. Julian and R. Cuzner, “The Use of Digital Twins in Inverter-based DERs to Improve Nanogrid Fault Recovery”, 2023 IEEE Energy Conversion Congress and Exposition (ECCE), Nashville, TN, Oct-Nov 2023.
