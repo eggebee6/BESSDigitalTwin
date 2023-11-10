@@ -132,7 +132,7 @@ else
   model_params.label_count = num_actions;
   
   % Create model
-  [model, training_params] = create_resnet2(model_params);
+  [model, training_params] = create_resnet(model_params);
 end
 
 model_eval_cb = @evaluate_resnet;
@@ -146,21 +146,21 @@ training_params.best_validation_loss = [];
 
 training_params.using_gpu = gpus_available > 0;
 
-training_params.min_recon_loss = 10000;
+training_params.min_kl_scaling_loss = 10000;
 
-training_params.action_loss_factor = num_actions;
+training_params.action_loss_factor = num_actions * 4;
 
 % Initialize output, counters, etc.
 create_output_dir();
 
-checkpoint_iteration_count = 1000;
+checkpoint_iteration_count = 250;
 checkpoint_counter = 0;
 
-validation_iteration_count = 250;
+validation_iteration_count = 100;
 validation_counter = 0;
 
 % Initialize training loop values
-epoch_count = 20;
+epoch_count = 50;
 
 epoch = 0;
 iteration = 0;

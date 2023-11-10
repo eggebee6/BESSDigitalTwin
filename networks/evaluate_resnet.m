@@ -111,26 +111,32 @@ try
 %% Calculate loss and gradients
 % Total loss is the sum of reconstruction loss and KL divergence loss
 
-  % Get reconstruction loss and update KL loss factor
+  % Get reconstruction loss
   losses.recon_loss = recon_loss * training_params.recon_loss_factor;
-  if (losses.recon_loss > 0)
-    training_params.kl_loss_factor = min([training_params.min_recon_loss / losses.recon_loss, 1]);
-    if (losses.recon_loss < training_params.min_recon_loss)
-      training_params.min_recon_loss = losses.recon_loss;
-    end
-  end
-
-  % Get KL loss
-  losses.kl_loss = kl_loss * training_params.kl_loss_factor;
 
   % Get action loss
   losses.action_loss = action_loss * training_params.action_loss_factor;
+
+  % Adjust KL loss factor and get KL loss
+  kl_scaling_loss = losses.recon_loss + losses.action_loss;
+  if (kl_scaling_loss > 0)
+    training_params.kl_loss_factor = min([training_params.min_kl_scaling_loss / kl_scaling_loss, 1]);
+    if (kl_scaling_loss < training_params.min_kl_scaling_loss)
+      training_params.min_kl_scaling_loss = kl_scaling_loss;
+    end
+  end
+
+  losses.kl_loss = kl_loss * training_params.kl_loss_factor;
   
   % Calculate total loss
   losses.total_loss = ...
     losses.recon_loss + ...
     losses.kl_loss + ...
     losses.action_loss;
+
+  % Calculate separate losses
+  %losses.total_recon_loss = losses.recon_loss + losses.kl_loss;
+  %losses.total_action_loss = losses.action_loss;
 
   % Get gradients
   [grads.decoder, grads.encoder, grads.action_recommender] = ...
@@ -139,12 +145,22 @@ try
       model.encoder.Learnables, ...
       model.action_recommender.Learnables);
 
+  %[grads.decoder, grads.encoder_recon] = ...
+  %  dlgradient(losses.total_loss, ...
+  %    model.decoder.Learnables, ...
+  %    model.encoder.Learnables);
+
+  %[grads.action_recommender, grads.encoder_action] = ...
+  %  dlgradient(losses.total_loss, ...
+  %    model.encoder.Learnables, ...
+  %    model.action_recommender.Learnables);
+
   % Debug stuff
-  if (any(~isfinite(grads.decoder{1, 3}{1}), 'all') || ...
-      any(~isfinite(grads.encoder{1, 3}{1}), 'all') || ...
-      any(~isfinite(grads.action_recommender{1, 3}{1}), 'all'))
-    error('Bad gradient');
-  end
+  %if (any(~isfinite(grads.decoder{1, 3}{1}), 'all') || ...
+  %    any(~isfinite(grads.encoder{1, 3}{1}), 'all') || ...
+  %    any(~isfinite(grads.action_recommender{1, 3}{1}), 'all'))
+  %  error('Bad gradient');
+  %end
   if (losses.total_loss > 1e6)
     error('Loss is too high');
   end
