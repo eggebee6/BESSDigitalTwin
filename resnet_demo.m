@@ -59,9 +59,9 @@ gp = global_params();
 num_actions = DTInfo.initialize_scenario_labels(training_data_dir);
 
 if (gpus_available > 0)
-  mini_batch_size = floor(gp.samples_per_cycle / gp.min_sequence_len) * 192;
+  mini_batch_size = floor(gp.samples_per_cycle / gp.min_sequence_len) * 128;
 else
-  mini_batch_size = 8;    % TODO: This is a small value for test purposes only
+  mini_batch_size = 3;    % TODO: This is a small value for test purposes only
 end
 
 fprintf('Initializing datastores, %s\n', datetime());
@@ -92,12 +92,12 @@ validation_ds = transform(validation_ds, ...
 
 % Create minibatch queues
 training_batch_queue = minibatchqueue(training_ds, ...
-  'MiniBatchFormat', {'CTB', 'CTB', 'CTB', 'CB'}, ...
+  'MiniBatchFormat', {'CTB', 'CTB', 'CTB'}, ...
   'MiniBatchSize', mini_batch_size, ...
   'PartialMiniBatch', 'discard');
 
 validation_batch_queue = minibatchqueue(validation_ds, ...
-  'MiniBatchFormat', {'CTB', 'CTB', 'CTB', 'CB'}, ...
+  'MiniBatchFormat', {'CTB', 'CTB', 'CTB'}, ...
   'MiniBatchSize', mini_batch_size, ...
   'PartialMiniBatch', 'discard');
 
@@ -140,12 +140,15 @@ model_update_cb = @update_resnet;
 
 %% Train and monitor progress
 % Initialize training parameters
-training_params.learn_rate = 2e-4;
-training_params.monte_carlo_reps = 3;
+training_params.learn_rate = 1e-3;
+training_params.monte_carlo_reps = 2;
+training_params.best_validation_loss = [];
 
 training_params.using_gpu = gpus_available > 0;
 
 training_params.min_recon_loss = 10000;
+
+training_params.action_loss_factor = num_actions;
 
 % Initialize output, counters, etc.
 create_output_dir();
@@ -189,11 +192,11 @@ try
       training_params.iteration = iteration;
   
       % Evaluate and update model with a training batch
-      [error_vectors, measurements, vgrid, labels] = next(training_batch_queue);
+      [training_data, error_vectors, labels] = next(training_batch_queue);
 
       [losses, grads, training_params] = dlfeval(model_eval_cb, ...
         model, ...
-        error_vectors, labels, ...
+        training_data, error_vectors, labels, ...
         training_params);
 
       [model, training_params] = model_update_cb(model, losses, grads, training_params);
@@ -211,10 +214,21 @@ try
         % Reset counter
         validation_counter = validation_iteration_count - 1;
         
-        [error_vectors, measurements, vgrid, labels] = next(validation_batch_queue);
+        [training_data, error_vectors, labels] = next(validation_batch_queue);
         perform_validation(model_eval_cb, model, ...
-          error_vectors, labels, ...
+          training_data, error_vectors, labels, ...
           training_params, monitor);
+
+        % Check for best validation loss
+        if isempty(training_params.best_validation_loss)
+          training_params.best_validation_loss = losses.total_loss;
+        elseif (losses.total_loss < training_params.best_validation_loss)
+          % Save model
+          best_validation_file = fullfile(output_dir, 'best_model.mat');
+          save(best_validation_file, 'model');
+      
+          training_params.best_validation_loss = losses.total_loss;
+        end
       end
   
       % Perform checkpoint operations
@@ -232,6 +246,9 @@ try
   
     end
     epoch_duration = toc(epoch_start_time);
+
+    % Drop learning rate to 90%
+    training_params.learn_rate = training_params.learn_rate * 0.9;
 
     % Save model after every epoch
     try
@@ -336,11 +353,11 @@ function monitor = update_monitor(monitor)
   end
 end
 
-function [validation_losses] = perform_validation(model_eval_cb, model, error_vectors, labels, training_params, monitor)
+function [validation_losses] = perform_validation(model_eval_cb, model, training_data, error_vectors, labels, training_params, monitor)
   % Get losses from evaluation function
   [validation_losses, ~, ~] = dlfeval(model_eval_cb, ...
     model, ...
-    error_vectors, labels, ...
+    training_data, error_vectors, labels, ...
     training_params);
 
   % Display validation info

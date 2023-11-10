@@ -1,4 +1,4 @@
-function [losses, grads, training_params] = evaluate_resnet(model, error_vectors, labels, training_params)
+function [losses, grads, training_params] = evaluate_resnet(model, training_data, error_vectors, labels, training_params)
   losses = [];
   grads = [];
 
@@ -15,19 +15,18 @@ try
   dim_C = 1;
   dim_B = 2;
   dim_T = 3;
-  size_C = size(error_vectors, dim_C);
-  size_B = size(error_vectors, dim_B);
-  size_T = size(error_vectors, dim_T);
+  size_C = size(training_data, dim_C);
+  size_B = size(training_data, dim_B);
+  size_T = size(training_data, dim_T);
 
   monte_carlo_reps = training_params.monte_carlo_reps;
 
   latent_dims = model.latent_dims;
-
-%labels = dlarray(repmat(labels, [1 1 size_T]), 'CBT');
   
+  labels = mean(labels, dim_T);
 
 %% Encode input
-  encoder_output = forward(model.encoder, error_vectors);
+  encoder_output = forward(model.encoder, training_data);
 
   % Debug stuff
   %if (any(~isfinite(encoder_output), 'all'))
@@ -67,14 +66,10 @@ try
     % Reconstruct output
     decoder_output = forward(model.decoder, latent_sample);
 
-% Get action
-%action_output = forward(model.action_recommender, latent_sample);
-%action_output = action_output(:, :, end);
-%action_output = reshape(action_output, [size(action_output, 1) size(action_output, 2)]);
-%action_output = dlarray(action_output, 'CB');
-
-%model.action_recommender = resetState(model.action_recommender);
-
+    % Get action
+    %model.action_recommender = resetState(model.action_recommender);
+    %action_output = forward(model.action_recommender, latent_sample);
+ 
     % Debug stuff
     %if (any(~isfinite(latent_sample), 'all') || ...
     %    any(~isfinite(decoder_output), 'all'))
@@ -91,8 +86,9 @@ try
     %  error('Negative in reconstruction loss');
     %end
 
-% Calculate action loss and reset state
-%action_loss = action_loss + crossentropy(action_output, labels);
+    % Calculate action loss
+    %action_output = mean(action_output, dim_T);
+    %action_loss = action_loss + crossentropy(action_output, labels);
 
     % Debug stuff
     %if ~isfinite(action_loss)
@@ -103,7 +99,14 @@ try
   end
 
   recon_loss = recon_loss ./ monte_carlo_reps;
-  action_loss = action_loss ./ monte_carlo_reps;
+  %action_loss = action_loss ./ monte_carlo_reps;
+
+  % Get action
+  action_output = forward(model.action_recommender, latent_sample);
+  
+  % Calculate action loss
+  action_output = mean(action_output, dim_T);
+  action_loss = action_loss + crossentropy(action_output, labels);
 
 %% Calculate loss and gradients
 % Total loss is the sum of reconstruction loss and KL divergence loss
@@ -121,8 +124,7 @@ try
   losses.kl_loss = kl_loss * training_params.kl_loss_factor;
 
   % Get action loss
-%losses.action_loss = action_loss * training_params.action_loss_factor;
-  losses.action_loss = dlarray(0);
+  losses.action_loss = action_loss * training_params.action_loss_factor;
   
   % Calculate total loss
   losses.total_loss = ...

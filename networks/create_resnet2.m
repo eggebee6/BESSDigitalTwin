@@ -6,12 +6,12 @@ function [model, training_params] = create_resnet2(model_params)
   encoder_hidden_size = model_params.encoder_hidden_size;
   latent_dims = model_params.latent_dims;
 
-  filter_size = 3;
-
   model.encoder_hidden_size = encoder_hidden_size;
   model.latent_dims = latent_dims;
   model.min_sequence_len = gp.min_sequence_len;
   model.label_count = model_params.label_count;
+
+  ar_gru_hidden_size = 16;
 
 
   %% Create encoder
@@ -29,6 +29,7 @@ function [model, training_params] = create_resnet2(model_params)
   incoming_connection_name = enc_input_name;
   for i = 1:num_res_blocks
     num_res_neurons = latent_dims * (1 + num_res_blocks - i);
+    res_filter_size = 1 + 2*(i-1);
 
     % Add convolution layers
     res_conv1_name = sprintf('enc_res%d_conv1', i);
@@ -36,31 +37,16 @@ function [model, training_params] = create_resnet2(model_params)
     res_conv2_name = sprintf('enc_res%d_conv2', i);
 
     encoder_lgraph = addLayers(encoder_lgraph, [...
-      convolution1dLayer(filter_size, num_res_neurons, 'Name', res_conv1_name, ...
+      convolution1dLayer(res_filter_size, num_res_neurons, 'Name', res_conv1_name, ...
         'Padding', 'same', ...
         'Stride', 1)
       tanhLayer('Name', res_conv_act_name)
-      convolution1dLayer(filter_size, num_res_neurons, 'Name', res_conv2_name, ...
+      convolution1dLayer(3, num_res_neurons, 'Name', res_conv2_name, ...
         'Padding', 'same', ...
         'Stride', 1)
     ]);
 
     encoder_lgraph = connectLayers(encoder_lgraph, incoming_connection_name, res_conv1_name);
-
-    % Add RNN layers
-    %res_rnn1_name = sprintf('enc_res%d_rnn1', i);
-    %res_rnn_act_name = sprintf('enc_res%d_rnn_act', i);
-    %res_rnn2_name = sprintf('enc_res%d_rnn2', i);
-
-    %encoder_lgraph = addLayers(encoder_lgraph, [...
-    %  gruLayer(num_res_neurons, 'Name', res_rnn1_name, ...
-    %    'OutputMode', 'sequence')
-    %  tanhLayer('Name', res_rnn_act_name)
-    %  gruLayer(num_res_neurons, 'Name', res_rnn2_name, ...
-    %    'OutputMode', 'sequence')
-    %]);
-
-    %encoder_lgraph = connectLayers(encoder_lgraph, incoming_connection_name, res_rnn1_name);
 
     % Add projection layer
     res_fc_proj_name = sprintf('enc_res%d_proj', i);
@@ -75,14 +61,10 @@ function [model, training_params] = create_resnet2(model_params)
     res_sum_act_name = sprintf('enc_res%d_sum_act', i);
 
     encoder_lgraph = addLayers(encoder_lgraph, [...
-      %additionLayer(3, 'Name', res_sum_name)
       additionLayer(2, 'Name', res_sum_name)
       tanhLayer('Name', res_sum_act_name)
     ]);
 
-    %encoder_lgraph = connectLayers(encoder_lgraph, res_conv2_name, sprintf('%s/in1', res_sum_name));
-    %encoder_lgraph = connectLayers(encoder_lgraph, res_rnn2_name, sprintf('%s/in2', res_sum_name));
-    %encoder_lgraph = connectLayers(encoder_lgraph, res_fc_proj_name, sprintf('%s/in3', res_sum_name));
     encoder_lgraph = connectLayers(encoder_lgraph, res_conv2_name, sprintf('%s/in1', res_sum_name));
     encoder_lgraph = connectLayers(encoder_lgraph, res_fc_proj_name, sprintf('%s/in2', res_sum_name));
 
@@ -159,6 +141,7 @@ function [model, training_params] = create_resnet2(model_params)
   incoming_connection_name = dec_hidden_name;
   for i = num_res_blocks:-1:1
     num_res_neurons = latent_dims * (1 + num_res_blocks - i);
+    res_filter_size = 1 + 2*(i-1);
 
     % Add initial activation function
     res_sum_act_name = sprintf('dec_res%d_sum_act', i);
@@ -175,32 +158,17 @@ function [model, training_params] = create_resnet2(model_params)
 
     decoder_lgraph = connectLayers(decoder_lgraph, res_sum_act_name, res_fc_proj_name);
 
-    % Add RNN layers
-    %res_rnn1_name = sprintf('dec_res%d_rnn1', i);
-    %res_rnn_act_name = sprintf('dec_res%d_rnn_act', i);
-    %res_rnn2_name = sprintf('dec_res%d_rnn2', i);
-
-    %decoder_lgraph = addLayers(decoder_lgraph, [...
-    %  gruLayer(num_res_neurons, 'Name', res_rnn2_name, ...
-    %    'OutputMode', 'sequence')
-    %  tanhLayer('Name', res_rnn_act_name)
-    %  gruLayer(num_res_neurons, 'Name', res_rnn1_name, ...
-    %    'OutputMode', 'sequence')
-    %]);
-
-    %decoder_lgraph = connectLayers(decoder_lgraph, res_sum_act_name, res_rnn2_name);
-
     % Add convolution layers
     res_conv1_name = sprintf('dec_res%d_tconv1', i);
     res_conv_act_name = sprintf('dec_res%d_tconv_act', i);
     res_conv2_name = sprintf('dec_res%d_tconv2', i);
 
     decoder_lgraph = addLayers(decoder_lgraph, [...
-      transposedConv1dLayer(filter_size, num_res_neurons, 'Name', res_conv2_name, ...
+      transposedConv1dLayer(3, num_res_neurons, 'Name', res_conv2_name, ...
         'Cropping', 'same', ...
         'Stride', 1)
       tanhLayer('Name', res_conv_act_name)
-      transposedConv1dLayer(filter_size, num_res_neurons, 'Name', res_conv1_name, ...
+      transposedConv1dLayer(res_filter_size, num_res_neurons, 'Name', res_conv1_name, ...
         'Cropping', 'same', ...
         'Stride', 1)
     ]);
@@ -211,13 +179,9 @@ function [model, training_params] = create_resnet2(model_params)
     res_sum_name = sprintf('dec_res%d_sum', i);
 
     decoder_lgraph = addLayers(decoder_lgraph, [...
-      %additionLayer(3, 'Name', res_sum_name)
       additionLayer(2, 'Name', res_sum_name)
     ]);
 
-    %decoder_lgraph = connectLayers(decoder_lgraph, res_conv1_name, sprintf('%s/in1', res_sum_name));
-    %decoder_lgraph = connectLayers(decoder_lgraph, res_rnn1_name, sprintf('%s/in2', res_sum_name));
-    %decoder_lgraph = connectLayers(decoder_lgraph, res_fc_proj_name, sprintf('%s/in3', res_sum_name));
     decoder_lgraph = connectLayers(decoder_lgraph, res_conv1_name, sprintf('%s/in1', res_sum_name));
     decoder_lgraph = connectLayers(decoder_lgraph, res_fc_proj_name, sprintf('%s/in2', res_sum_name));
 
@@ -229,7 +193,7 @@ function [model, training_params] = create_resnet2(model_params)
   dec_output_name = 'dec_tconv_out';
 
   decoder_lgraph = addLayers(decoder_lgraph, ...
-    transposedConv1dLayer(filter_size, gp.num_features, 'Name', dec_output_name, ...
+    transposedConv1dLayer(3, gp.num_err_components, 'Name', dec_output_name, ...
       'Cropping', 'same', ...
       'Stride', 1));
   decoder_lgraph = connectLayers(decoder_lgraph, incoming_connection_name, dec_output_name);
@@ -250,6 +214,7 @@ function [model, training_params] = create_resnet2(model_params)
   incoming_connection_name = ar_input_name;
   for i = 3:-1:1
     num_res_neurons = gp.num_features * (1 + 3 - i);
+    res_filter_size = 3;
 
     % Add convolution layers
     res_conv1_name = sprintf('ar_res%d_conv1', i);
@@ -258,16 +223,14 @@ function [model, training_params] = create_resnet2(model_params)
     res_pool_name = sprintf('ar_res%d_pool', i);
 
     action_lgraph = addLayers(action_lgraph, [...
-      convolution1dLayer(filter_size, num_res_neurons, 'Name', res_conv1_name, ...
+      convolution1dLayer(res_filter_size, num_res_neurons, 'Name', res_conv1_name, ...
         'Padding', 'same', ...
         'Stride', 1)
-      tanhLayer('Name', res_conv_act_name)
-
+      reluLayer('Name', res_conv_act_name)
       maxPooling1dLayer(3, 'Name', res_pool_name, ...
         'Padding', 'same', ...
         'Stride', 1)
-
-      convolution1dLayer(filter_size, num_res_neurons, 'Name', res_conv2_name, ...
+      convolution1dLayer(res_filter_size, num_res_neurons, 'Name', res_conv2_name, ...
         'Padding', 'same', ...
         'Stride', 1)
     ]);
@@ -300,30 +263,38 @@ function [model, training_params] = create_resnet2(model_params)
   res_output_name = incoming_connection_name;
 
   % Add hidden layers
+  ar_hidden_conv_name = 'ar_hidden_conv';
+  ar_hidden_conv_act_name = 'ar_hidden_conv_act';
+  ar_gru_name = 'ar_hidden_gru';
+  ar_gru_act_name = 'ar_hidden_gru_act';
   ar_hidden1_name = 'ar_hidden1';
   ar_hidden1_act_name = 'ar_hidden1_act';
   ar_hidden2_name = 'ar_hidden2';
   ar_hidden2_act_name = 'ar_hidden2_act';
-  ar_gru_name = 'ar_hidden_gru';
-  ar_gru_act_name = 'ar_hidden_gru_act';
   ar_hidden_output = 'ar_hidden_out';
   ar_output_name = 'ar_output';
 
   action_lgraph = addLayers(action_lgraph, [...
+    convolution1dLayer(3, gp.num_features, 'Name', ar_hidden_conv_name, ...
+      'Padding', 'same', ...
+      'Stride', 1)
+    reluLayer('Name', ar_hidden_conv_act_name)
+
     fullyConnectedLayer(gp.num_features, 'Name', ar_hidden1_name)
     reluLayer('Name', ar_hidden1_act_name)
+
+    gruLayer(ar_gru_hidden_size, 'Name', ar_gru_name, ...
+      'OutputMode', 'sequence')
+    reluLayer('Name', ar_gru_act_name)
+
     fullyConnectedLayer(encoder_hidden_size, 'Name', ar_hidden2_name)
     reluLayer('Name', ar_hidden2_act_name)
-
-    gruLayer(32, 'Name', ar_gru_name, ...
-      'OutputMode', 'last')
-    reluLayer('Name', ar_gru_act_name)
 
     fullyConnectedLayer(model_params.label_count, 'Name', ar_hidden_output)    
     softmaxLayer('Name', ar_output_name)
   ]);
 
-  action_lgraph = connectLayers(action_lgraph, res_output_name, ar_hidden1_name);
+  action_lgraph = connectLayers(action_lgraph, res_output_name, ar_hidden_conv_name);
 
 
   %% Assemble the model
