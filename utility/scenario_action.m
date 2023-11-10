@@ -15,6 +15,7 @@ function [action] = scenario_action(scenario_name)
   elseif ( (length(str) >= 3) && (join(str(1:2), ' ') == "Load step") )
     % "Load step x"
     action = sprintf('Load step %d', str2num(str(3)));
+    %action = sprintf('Load step');
 
   elseif ( (length(str) >= 2) && (join(str(1:2), ' ') == "No events") )
     % "No events"
