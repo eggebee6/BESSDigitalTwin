@@ -178,6 +178,13 @@ classdef DTInfo
       name = strs(end);
     end
 
+    function [data] = get_input_dlarray(dt_info)
+    % Get the training data in CBT format
+      data = DTInfo.get_feature_training_input(dt_info)';
+      data = reshape(data, [size(data, 1), 1, size(data, 2)]);
+      data = dlarray(data, 'CBT');
+    end
+
     function [data] = get_err_dlarray(dt_info)
     % Get the error vectors in CBT format
       data = DTInfo.get_all_err(dt_info)';
@@ -197,6 +204,15 @@ classdef DTInfo
       data = DTInfo.get_vgrid(dt_info)';
       data = reshape(data, [size(data, 1), 1, size(data, 2)]);
       data = dlarray(data, 'CBT');
+    end
+
+    function [data] = get_feature_training_input(dt_info)
+    % Get data for feature extraction
+      data = [...
+        dt_info.data(:, 20:28), ...   % Error vectors
+        dt_info.data(:, 1:9), ...     % State measurements
+        dt_info.data(:, 17:19), ...   % Grid voltages
+      ];
     end
 
     function [action_count] = initialize_scenario_labels(training_data_dir)
@@ -225,6 +241,26 @@ classdef DTInfo
     % Get the one-hot encoded label for the scenario name
       action_map = DTInfo.scenario_action_map;
       label = action_map(scenario_name);
+    end
+
+    function [timestep] = get_event_timestep(dt_info)
+    % Get the timestep at which the scenario event occurs
+    % Only return times after the ESS is connected
+      timestep = [];
+      ess_time = find_ess_connect(dt_info);
+      event_time_funcs = {...
+        @find_fault_start, ...
+        @find_load_connect, ...
+        @find_pmloss, ...
+      };
+
+      for f = event_time_funcs
+        event_time = f{:}(dt_info);
+        if (~isempty(event_time) && (event_time > ess_time))
+          timestep = time_to_index(event_time);
+          break;
+        end
+      end
     end
     
   end
