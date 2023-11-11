@@ -122,7 +122,6 @@ if isfile('debug_model.mat')
 else
   % Set model parameters
   model_params.filter_size = 3;
-  %model_params.num_filters = gp.num_features * 4;
   
   model_params.num_res_blocks = 5;
 
@@ -135,8 +134,6 @@ else
   [model, training_params] = create_resnet(model_params);
 end
 
-%model_eval_cb = @evaluate_resnet;
-%model_update_cb = @update_resnet;
 
 %% Train and monitor progress
 % Initialize training parameters
@@ -215,11 +212,10 @@ try
 
       monitor_losses.action_loss = losses.action_loss;
 
-      %total_loss = ...
-      %  monitor_losses.recon_loss + ...
-      %  monitor_losses.kl_loss + ...
-      %  monitor_losses.action_loss;
-      total_loss = monitor_losses.action_loss;
+      total_loss = ...
+        monitor_losses.recon_loss + ...
+        monitor_losses.kl_loss + ...
+        monitor_losses.action_loss;
       monitor_losses.total_loss = total_loss;
     
       % Update monitor

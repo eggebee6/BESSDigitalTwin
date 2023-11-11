@@ -65,10 +65,6 @@ try
 
     % Reconstruct output
     decoder_output = forward(model.decoder, latent_sample);
-
-    % Get action
-    %model.action_recommender = resetState(model.action_recommender);
-    %action_output = forward(model.action_recommender, latent_sample);
  
     % Debug stuff
     %if (any(~isfinite(latent_sample), 'all') || ...
@@ -85,21 +81,9 @@ try
     %elseif (recon_loss < 0)
     %  error('Negative in reconstruction loss');
     %end
-
-    % Calculate action loss
-    %action_output = mean(action_output, dim_T);
-    %action_loss = action_loss + crossentropy(action_output, labels);
-
-    % Debug stuff
-    %if ~isfinite(action_loss)
-    %  error('Bad value in action loss');
-    %elseif (action_loss < 0)
-    %  error('Negative in action loss');
-    %end
   end
 
   recon_loss = recon_loss ./ monte_carlo_reps;
-  %action_loss = action_loss ./ monte_carlo_reps;
 
   % Get action
   action_output = forward(model.action_recommender, latent_sample);
@@ -134,26 +118,12 @@ try
     losses.kl_loss + ...
     losses.action_loss;
 
-  % Calculate separate losses
-  %losses.total_recon_loss = losses.recon_loss + losses.kl_loss;
-  %losses.total_action_loss = losses.action_loss;
-
   % Get gradients
   [grads.decoder, grads.encoder, grads.action_recommender] = ...
     dlgradient(losses.total_loss, ...
       model.decoder.Learnables, ...
       model.encoder.Learnables, ...
       model.action_recommender.Learnables);
-
-  %[grads.decoder, grads.encoder_recon] = ...
-  %  dlgradient(losses.total_loss, ...
-  %    model.decoder.Learnables, ...
-  %    model.encoder.Learnables);
-
-  %[grads.action_recommender, grads.encoder_action] = ...
-  %  dlgradient(losses.total_loss, ...
-  %    model.encoder.Learnables, ...
-  %    model.action_recommender.Learnables);
 
   % Debug stuff
   %if (any(~isfinite(grads.decoder{1, 3}{1}), 'all') || ...
