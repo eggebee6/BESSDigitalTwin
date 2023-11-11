@@ -70,10 +70,9 @@ function [fig] = demo_model(model, testing_data, correct_action, predict_full_se
   action_data = reshape(action_data, [size(action_data, 1) size(action_data, 3)]);
 
   % Truncate data ranges to shorter length
-  max_len = min([size(testing_data, 2), size(recon_data, 2), size(action_data, 2)]);
+  max_len = min([size(testing_data, 2), size(recon_data, 2)]);
   testing_data = testing_data(:, 1:max_len);
   recon_data = recon_data(:, 1:max_len);
-  action_data = action_data(:, 1:max_len);
 
   % Rescale data
   recon_data(1:3, :) = recon_data(1:3, :) .* gp.iLf_err_scale;
@@ -111,13 +110,17 @@ function [fig] = demo_model(model, testing_data, correct_action, predict_full_se
   ]);
   y_lim_ilo = [0 extractdata(y_lim_ilo)];
 
-  y_lim_action = [0 model.label_count];
+  y_lim_action = [0 model.label_count + 1];
 
   % Create plots
   fig = tiledlayout(4, 2);
 
   % Plot action recommendation histograms
-  rec_hist = histcounts(extractdata(action_data), 1:model.label_count+1) ./ size_T;
+  [~, max_action] = max(correct_action);
+  action_data_len = size(action_data, 2);
+  action_x_range = (1:action_data_len) ./ gp.Fs;
+
+  rec_hist = histcounts(extractdata(action_data), 1:model.label_count+1) ./ action_data_len;
 
   nexttile;
   bar([rec_hist', correct_action]);
@@ -130,12 +133,10 @@ function [fig] = demo_model(model, testing_data, correct_action, predict_full_se
     'Location', 'northeastoutside');
 
   % Plot action recommendations over time
-  [~, max_action] = max(correct_action);
-
   nexttile;
   plot(...
-    x_range, action_data(1, :)', '.', ...
-    x_range, repmat(max_action, size_B, size_T)', '-');
+    action_x_range, action_data(1, :)', '.', ...
+    action_x_range, repmat(max_action, size_B, action_data_len)', '-');
   xlim('tight');
   ylim(y_lim_action);
   title('Recommendations over time');
