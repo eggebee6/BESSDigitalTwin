@@ -135,8 +135,8 @@ else
   [model, training_params] = create_resnet(model_params);
 end
 
-model_eval_cb = @evaluate_resnet;
-model_update_cb = @update_resnet;
+%model_eval_cb = @evaluate_resnet;
+%model_update_cb = @update_resnet;
 
 %% Train and monitor progress
 % Initialize training parameters
@@ -148,7 +148,7 @@ training_params.using_gpu = gpus_available > 0;
 
 training_params.min_kl_scaling_loss = 10000;
 
-training_params.action_loss_factor = num_actions * 4;
+training_params.action_loss_factor = 400;
 
 % Initialize output, counters, etc.
 create_output_dir();
@@ -190,21 +190,42 @@ try
 
       training_params.epoch = epoch;
       training_params.iteration = iteration;
+
+      grads.iteration = iteration;
   
       % Evaluate and update model with a training batch
       [training_data, error_vectors, labels] = next(training_batch_queue);
 
-      [losses, grads, training_params] = dlfeval(model_eval_cb, ...
+      % Reconstruction phase
+      [losses, grads, training_params] = dlfeval(@evaluate_resnet_recon, ...
         model, ...
-        training_data, error_vectors, labels, ...
-        training_params);
+        training_data, error_vectors, ...
+        training_params, grads);
+      [model, training_params] = update_resnet_recon(model, losses, grads, training_params);
 
-      [model, training_params] = model_update_cb(model, losses, grads, training_params);
+      monitor_losses.recon_loss = losses.recon_loss;
+      monitor_losses.kl_loss = losses.kl_loss;
+
+      % Action recommendation phase
+      [losses, grads, training_params] = dlfeval(@evaluate_resnet_action, ...
+        model, ...
+        training_data, labels, ...
+        training_params, grads);
+      [model, training_params] = update_resnet_action(model, losses, grads, training_params);
+
+      monitor_losses.action_loss = losses.action_loss;
+
+      %total_loss = ...
+      %  monitor_losses.recon_loss + ...
+      %  monitor_losses.kl_loss + ...
+      %  monitor_losses.action_loss;
+      total_loss = monitor_losses.action_loss;
+      monitor_losses.total_loss = total_loss;
     
       % Update monitor
       monitor.epoch = epoch;
       monitor.iteration = iteration;
-      monitor.losses = losses;
+      monitor.losses = monitor_losses;
       monitor = update_monitor(monitor);
 
       % Test performance on validation data
@@ -215,19 +236,20 @@ try
         validation_counter = validation_iteration_count - 1;
         
         [training_data, error_vectors, labels] = next(validation_batch_queue);
-        perform_validation(model_eval_cb, model, ...
+        perform_validation(model, ...
           training_data, error_vectors, labels, ...
           training_params, monitor);
 
         % Check for best validation loss
         if isempty(training_params.best_validation_loss)
-          training_params.best_validation_loss = losses.total_loss;
-        elseif (losses.total_loss < training_params.best_validation_loss)
+          training_params.best_validation_loss = total_loss;
+
+        elseif (total_loss < training_params.best_validation_loss)
           % Save model
           best_validation_file = fullfile(output_dir, 'best_model.mat');
           save(best_validation_file, 'model');
       
-          training_params.best_validation_loss = losses.total_loss;
+          training_params.best_validation_loss = total_loss;
         end
       end
   
@@ -353,12 +375,30 @@ function monitor = update_monitor(monitor)
   end
 end
 
-function [validation_losses] = perform_validation(model_eval_cb, model, training_data, error_vectors, labels, training_params, monitor)
-  % Get losses from evaluation function
-  [validation_losses, ~, ~] = dlfeval(model_eval_cb, ...
+function [validation_losses] = perform_validation(model, training_data, error_vectors, labels, training_params, monitor)
+  grads.iteration = -1;
+
+  % Get losses from evaluation functions
+  [losses, ~, ~] = dlfeval(@evaluate_resnet_recon, ...
     model, ...
-    training_data, error_vectors, labels, ...
-    training_params);
+    training_data, error_vectors, ...
+    training_params, grads);
+
+  validation_losses.recon_loss = losses.recon_loss;
+  validation_losses.kl_loss = losses.kl_loss;
+
+  % Get losses from evaluation functions
+  [losses, ~, ~] = dlfeval(@evaluate_resnet_action, ...
+    model, ...
+    training_data, labels, ...
+    training_params, grads);
+
+  validation_losses.action_loss = losses.action_loss;
+
+  validation_losses.total_loss = ...
+    validation_losses.recon_loss + ...
+    validation_losses.kl_loss + ...
+    validation_losses.action_loss;
 
   % Display validation info
   fprintf('[%s] Validation losses: Total %f, Recon %f, Action %f, KL %f\n', ...
