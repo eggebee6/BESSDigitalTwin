@@ -1,12 +1,26 @@
-function [fig] = demo_model(model, testing_data, correct_action, vgrid, predict_full_sequence)
+function [fig] = demo_model(model, dt_info, num_cycles, predict_full_sequence)
   arguments
     model = [];
-    testing_data = [];
-    correct_action = [];
-    vgrid = [];
-    predict_full_sequence = false;
+    dt_info = [];
+    num_cycles = 1;
+    predict_full_sequence = true;
   end
   gp = global_params();
+
+  x_range = 1:(gp.samples_per_cycle * num_cycles);
+
+  testing_data = DTInfo.get_input_dlarray(dt_info);
+  testing_data = testing_data(:, :, x_range);
+
+  scenario_name = DTInfo.get_scenario_name(dt_info);
+  correct_action = DTInfo.get_scenario_label(scenario_name);
+  vgrid = DTInfo.get_vgrid(dt_info) ./ gp.voltage_pu;
+
+  event_timestep = DTInfo.get_event_timestep(dt_info);
+  if isempty(event_timestep)
+    event_timestep = 0;
+  end
+  event_timestep = event_timestep / gp.Fs;
   
   dim_C = 1;
   dim_B = 2;
@@ -123,6 +137,7 @@ function [fig] = demo_model(model, testing_data, correct_action, vgrid, predict_
 
   % Create plots
   fig = tiledlayout(3, 2);
+  title(fig, sprintf('%s', scenario_name));
 
   % Plot iLf error
   nexttile();
@@ -136,6 +151,9 @@ function [fig] = demo_model(model, testing_data, correct_action, vgrid, predict_
     x_range, recon_data(data_range(1), :)', 'r.', ...
     x_range, recon_data(data_range(2), :)', 'g.', ...
     x_range, recon_data(data_range(3), :)', 'b.');
+  
+  xline(event_timestep, 'k--');
+
   xlim('tight');
   ylim(y_lim_ilf);
   title('Lf error');
@@ -149,6 +167,9 @@ function [fig] = demo_model(model, testing_data, correct_action, vgrid, predict_
     x_range, vgrid(1, :)', 'r-', ...
     x_range, vgrid(2, :)', 'g-', ...
     x_range, vgrid(3, :)', 'b-');
+  
+  xline(event_timestep, 'k--');
+
   xlim('tight');
   ylim([-4.5 4.5]);
   title('Grid voltage p.u.');
@@ -167,6 +188,9 @@ function [fig] = demo_model(model, testing_data, correct_action, vgrid, predict_
     x_range, recon_data(data_range(1), :)', 'r.', ...
     x_range, recon_data(data_range(2), :)', 'g.', ...
     x_range, recon_data(data_range(3), :)', 'b.');
+
+  xline(event_timestep, 'k--');
+
   xlim('tight');
   ylim(y_lim_vcf);
   title('Cf error');
@@ -178,6 +202,9 @@ function [fig] = demo_model(model, testing_data, correct_action, vgrid, predict_
   plot(...
     action_x_range, action_data(1, :)', '.', ...
     action_x_range, repmat(max_action, size_B, action_data_len)', '-');
+
+  xline(event_timestep, 'k--');
+
   xlim('tight');
   ylim(y_lim_action);
   title('Recommendations over time');
@@ -196,6 +223,9 @@ function [fig] = demo_model(model, testing_data, correct_action, vgrid, predict_
     x_range, recon_data(data_range(1), :)', 'r.', ...
     x_range, recon_data(data_range(2), :)', 'g.', ...
     x_range, recon_data(data_range(3), :)', 'b.');
+
+  xline(event_timestep, 'k--');
+
   xlim('tight');
   ylim(y_lim_ilo);
   title('Lo error');
@@ -204,8 +234,8 @@ function [fig] = demo_model(model, testing_data, correct_action, vgrid, predict_
 
   % Plot action recommendation histograms
   nexttile;
-  bar([rec_hist', correct_action]);
-  yline(max(rec_hist), ':');
+  bar(rec_hist');
+  xline(max_action, 'k-');
   ylim([0 1]);
   title('Recommendations');
   xlabel('Recommendation');
