@@ -1,6 +1,5 @@
-function [losses, grads, training_params] = evaluate_resnet(model, training_data, error_vectors, labels, training_params)
+function [losses, grads, training_params] = evaluate_resnet(model, training_data, error_vectors, labels, training_params, grads)
   losses = [];
-  grads = [];
 
   encoder_output = [];
   latent_sample = [];
@@ -22,8 +21,7 @@ try
   monte_carlo_reps = training_params.monte_carlo_reps;
 
   latent_dims = model.latent_dims;
-  
-  labels = mean(labels, dim_T);
+
 
 %% Encode input
   encoder_output = forward(model.encoder, training_data);
@@ -65,15 +63,19 @@ try
 
     % Reconstruct output
     decoder_output = forward(model.decoder, latent_sample);
+
+    % Get action
+    action_output = forward(model.action_recommender, latent_sample);
+
+    % Calculate losses
+    recon_loss = recon_loss + mse(decoder_output, error_vectors);
+    action_loss = action_loss + crossentropy(action_output, labels);
  
     % Debug stuff
     %if (any(~isfinite(latent_sample), 'all') || ...
     %    any(~isfinite(decoder_output), 'all'))
     %  error('Bad value in network outputs');
     %end
-  
-    % Calculate reconstruction loss
-    recon_loss = recon_loss + mse(decoder_output, error_vectors);
 
     % Debug stuff
     %if ~isfinite(recon_loss)
@@ -84,13 +86,7 @@ try
   end
 
   recon_loss = recon_loss ./ monte_carlo_reps;
-
-  % Get action
-  action_output = forward(model.action_recommender, latent_sample);
-  
-  % Calculate action loss
-  action_output = mean(action_output, dim_T);
-  action_loss = action_loss + crossentropy(action_output, labels);
+  action_loss = action_loss ./ monte_carlo_reps;
 
 %% Calculate loss and gradients
 % Total loss is the sum of reconstruction loss and KL divergence loss
@@ -119,11 +115,11 @@ try
     losses.action_loss;
 
   % Get gradients
-  [grads.decoder, grads.encoder, grads.action_recommender] = ...
+  [grads.action_recommender, grads.decoder, grads.encoder] = ...
     dlgradient(losses.total_loss, ...
+      model.action_recommender.Learnables, ...
       model.decoder.Learnables, ...
-      model.encoder.Learnables, ...
-      model.action_recommender.Learnables);
+      model.encoder.Learnables);
 
   % Debug stuff
   %if (any(~isfinite(grads.decoder{1, 3}{1}), 'all') || ...

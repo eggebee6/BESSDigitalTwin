@@ -335,10 +335,12 @@ function [model, training_params] = create_resnet(model_params)
   model.action_recommender = dlnetwork(action_lgraph);
 
   %% Set default training parameters
-  training_params.enc_grad_recon_avg = [];
-  training_params.enc_grad_recon_avg2 = [];
-  training_params.enc_grad_act_avg = [];
-  training_params.enc_grad_act_avg2 = [];
+  training_params.enc_grad_avg = [];
+  training_params.enc_grad_avg2 = [];
+  %training_params.enc_grad_recon_avg = [];
+  %training_params.enc_grad_recon_avg2 = [];
+  %training_params.enc_grad_act_avg = [];
+  %training_params.enc_grad_act_avg2 = [];
 
   training_params.dec_grad_avg = [];
   training_params.dec_grad_avg2 = [];
