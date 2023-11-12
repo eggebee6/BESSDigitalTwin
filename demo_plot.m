@@ -1,64 +1,205 @@
-% Faults at generator
-%demo_scenario_filename = 'D:/data/training/Fault 1 Location 2/scenario_25-2.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 2 Location 2/scenario_25-3.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 3 Location 2/scenario_25-4.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 4 Location 2/scenario_25-5.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 5 Location 2/scenario_25-6.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 6 Location 2/scenario_25-7.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 7 Location 2/scenario_25-8.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 8 Location 2/scenario_25-9.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 9 Location 2/scenario_25-10.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 10 Location 2/scenario_25-11.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 11 Location 2/scenario_25-12.mat';
+%% Plot results of a trained BESS DT model
+% The model should be loaded in a variable named 'model'
 
-% Faults on bus
-%demo_scenario_filename = 'D:/data/training/Fault 1 Location 3/scenario_25-13.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 2 Location 3/scenario_25-14.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 3 Location 3/scenario_25-15.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 4 Location 3/scenario_25-16.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 5 Location 3/scenario_25-17.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 6 Location 3/scenario_25-18.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 7 Location 3/scenario_25-19.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 8 Location 3/scenario_25-20.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 9 Location 3/scenario_25-21.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 10 Location 3/scenario_25-22.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 11 Location 3/scenario_25-23.mat';
+num_cycles = 9;   % Number of cycles to include in plot (1 - 9)
 
-% A-B faults at each location
-%demo_scenario_filename = 'D:/data/training/Fault 1 Location 2/scenario_25-2.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 1 Location 3/scenario_25-13.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 1 Location 4/scenario_25-125.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 1 Location 5/scenario_25-88.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 1 Location 6/scenario_25-51.mat';
+% Functions to get scenario filename lists are:
+% all_fault_ab - A-B faults at each location
+% all_fault_bc - B-C faults at each location
+% all_fault_ag - A-Gnd faults at each location
+% all_fault_abg - A-B-Gnd faults at each location
+% all_fault_abc - A-B-C faults at each location
+% all_fault_abcg - A-B-C-Gnd faults at each location
+% all_bus_faults - All fault types on the bus
+% all_gen_faults - All faults types at the generator
+% all_nominal_events - All nominal events (load steps and "no event")
+% ieee1547_edge_cases - Induction machine vs. prime mover loss vs. "no event"
 
-% A-B-C-G faults at each location
-%demo_scenario_filename = 'D:/data/training/Fault 11 Location 2/scenario_25-251.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 11 Location 3/scenario_25-225.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 11 Location 4/scenario_25-273.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 11 Location 5/scenario_25-236.mat';
-%demo_scenario_filename = 'D:/data/training/Fault 11 Location 6/scenario_25-199.mat';
+for demo_scenario_filename = ieee1547_edge_cases()   % TODO: Change this function for different plots
 
-% Load steps
-%demo_scenario_filename = 'D:/data/training/Load step 1/scenario_25-24.mat';
-%demo_scenario_filename = 'D:/data/training/Load step 2/scenario_25-25.mat';
-%demo_scenario_filename = 'D:/data/training/Load step 3/scenario_25-26.mat';
-
-% Prime mover, no events
-%demo_scenario_filename = 'D:/data/training/Prime mover loss/scenario_25-27.mat';
-%demo_scenario_filename = 'D:/data/training/No events/scenario_25-1.mat';
-
-num_cycles = 5;
-
-for demo_scenario_filename = [...
-  "D:/data/training/Fault 1 Location 2/scenario_50-2.mat", ...
-  "D:/data/training/Fault 1 Location 3/scenario_50-13.mat", ...
-  "D:/data/training/Fault 1 Location 4/scenario_50-125.mat", ...
-  "D:/data/training/Fault 1 Location 5/scenario_50-88.mat", ...
-  "D:/data/training/Fault 1 Location 6/scenario_50-51.mat", ...
-]
-  
   dt_info = DTInfo.read_dt_info(demo_scenario_filename);
   
   figure('WindowState', 'maximized');
   fig_full = demo_model(model, dt_info, num_cycles);
+end
+
+
+%% Helper functions
+function [filenames] = all_fault_ab(event_index)
+  % Get filenames for line-to-line A-B fault (fault 1) at each location
+  arguments
+    event_index = 50;
+  end
+  event_index = max([1, event_index]);
+  event_index = min([event_index, 200]);
+
+  filenames = [...
+    sprintf("D:/data/training/Fault 1 Location 2/scenario_%d-2.mat", event_index), ...
+    sprintf("D:/data/training/Fault 1 Location 3/scenario_%d-13.mat", event_index), ...
+    sprintf("D:/data/training/Fault 1 Location 4/scenario_%d-125.mat", event_index), ...
+    sprintf("D:/data/training/Fault 1 Location 5/scenario_%d-88.mat", event_index), ...
+    sprintf("D:/data/training/Fault 1 Location 6/scenario_%d-51.mat", event_index), ...
+  ];
+end
+
+function [filenames] = all_fault_bc(event_index)
+  % Get filenames for line-to-line B-C fault (fault 1) at each location
+  arguments
+    event_index = 50;
+  end
+  event_index = max([1, event_index]);
+  event_index = min([event_index, 200]);
+
+  filenames = [...
+    sprintf("D:/data/training/Fault 2 Location 2/scenario_%d-3.mat", event_index), ...
+    sprintf("D:/data/training/Fault 2 Location 3/scenario_%d-14.mat", event_index), ...
+    sprintf("D:/data/training/Fault 2 Location 4/scenario_%d-126.mat", event_index), ...
+    sprintf("D:/data/training/Fault 2 Location 5/scenario_%d-89.mat", event_index), ...
+    sprintf("D:/data/training/Fault 2 Location 6/scenario_%d-52.mat", event_index), ...
+  ];
+end
+
+function [filenames] = all_fault_ag(event_index)
+  % Get filenames for line-to-ground A-G fault (fault 4) at each location
+  arguments
+    event_index = 50;
+  end
+  event_index = max([1, event_index]);
+  event_index = min([event_index, 200]);
+
+  filenames = [...
+    sprintf("D:/data/training/Fault 4 Location 2/scenario_%d-5.mat", event_index), ...
+    sprintf("D:/data/training/Fault 4 Location 3/scenario_%d-16.mat", event_index), ...
+    sprintf("D:/data/training/Fault 4 Location 4/scenario_%d-128.mat", event_index), ...
+    sprintf("D:/data/training/Fault 4 Location 5/scenario_%d-91.mat", event_index), ...
+    sprintf("D:/data/training/Fault 4 Location 6/scenario_%d-54.mat", event_index), ...
+  ];
+end
+
+function [filenames] = all_fault_abg(event_index)
+  % Get filenames for line-line-ground A-B-G fault (fault 7) at each location
+  arguments
+    event_index = 50;
+  end
+  event_index = max([1, event_index]);
+  event_index = min([event_index, 200]);
+
+  filenames = [...
+    sprintf("D:/data/training/Fault 7 Location 2/scenario_%d-5.mat", event_index), ...
+    sprintf("D:/data/training/Fault 7 Location 3/scenario_%d-16.mat", event_index), ...
+    sprintf("D:/data/training/Fault 7 Location 4/scenario_%d-128.mat", event_index), ...
+    sprintf("D:/data/training/Fault 7 Location 5/scenario_%d-91.mat", event_index), ...
+    sprintf("D:/data/training/Fault 7 Location 6/scenario_%d-54.mat", event_index), ...
+  ];
+end
+
+function [filenames] = all_fault_abc(event_index)
+  % Get filenames for three line fault (fault 11) at each location
+  arguments
+    event_index = 50;
+  end
+  event_index = max([1, event_index]);
+  event_index = min([event_index, 200]);
+
+  filenames = [...
+    sprintf("D:/data/training/Fault 11 Location 2/scenario_%d-12.mat", event_index), ...
+    sprintf("D:/data/training/Fault 11 Location 3/scenario_%d-23.mat", event_index), ...
+    sprintf("D:/data/training/Fault 11 Location 4/scenario_%d-135.mat", event_index), ...
+    sprintf("D:/data/training/Fault 11 Location 5/scenario_%d-98.mat", event_index), ...
+    sprintf("D:/data/training/Fault 11 Location 6/scenario_%d-61.mat", event_index), ...
+  ];
+end
+
+function [filenames] = all_fault_abcg(event_index)
+  % Get filenames for three line-to-ground fault (fault 10) at each location
+  arguments
+    event_index = 50;
+  end
+  event_index = max([1, event_index]);
+  event_index = min([event_index, 200]);
+
+  filenames = [...
+    sprintf("D:/data/training/Fault 10 Location 2/scenario_%d-11.mat", event_index), ...
+    sprintf("D:/data/training/Fault 10 Location 3/scenario_%d-22.mat", event_index), ...
+    sprintf("D:/data/training/Fault 10 Location 4/scenario_%d-134.mat", event_index), ...
+    sprintf("D:/data/training/Fault 10 Location 5/scenario_%d-97.mat", event_index), ...
+    sprintf("D:/data/training/Fault 10 Location 6/scenario_%d-60.mat", event_index), ...
+  ];
+end
+
+function [filenames] = all_bus_faults(event_index)
+  % Get filenames for each fault type on the bus
+  arguments
+    event_index = 50;
+  end
+  event_index = max([1, event_index]);
+  event_index = min([event_index, 200]);
+
+  filenames = [...
+    sprintf("D:/data/training/Fault 1 Location 3/scenario_%d-13.mat", event_index), ...
+    sprintf("D:/data/training/Fault 2 Location 3/scenario_%d-14.mat", event_index), ...
+    sprintf("D:/data/training/Fault 3 Location 3/scenario_%d-15.mat", event_index), ...
+    sprintf("D:/data/training/Fault 4 Location 3/scenario_%d-16.mat", event_index), ...
+    sprintf("D:/data/training/Fault 5 Location 3/scenario_%d-17.mat", event_index), ...
+    sprintf("D:/data/training/Fault 6 Location 3/scenario_%d-18.mat", event_index), ...
+    sprintf("D:/data/training/Fault 7 Location 3/scenario_%d-19.mat", event_index), ...
+    sprintf("D:/data/training/Fault 8 Location 3/scenario_%d-20.mat", event_index), ...
+    sprintf("D:/data/training/Fault 9 Location 3/scenario_%d-21.mat", event_index), ...
+    sprintf("D:/data/training/Fault 10 Location 3/scenario_%d-22.mat", event_index), ...
+    sprintf("D:/data/training/Fault 11 Location 3/scenario_%d-23.mat", event_index), ...
+  ];
+end
+
+function [filenames] = all_gen_faults(event_index)
+  % Get filenames for each fault type at the generator
+  arguments
+    event_index = 50;
+  end
+  event_index = max([1, event_index]);
+  event_index = min([event_index, 200]);
+
+  filenames = [...
+    sprintf("D:/data/training/Fault 1 Location 2/scenario_%d-2.mat", event_index), ...
+    sprintf("D:/data/training/Fault 2 Location 2/scenario_%d-3.mat", event_index), ...
+    sprintf("D:/data/training/Fault 3 Location 2/scenario_%d-4.mat", event_index), ...
+    sprintf("D:/data/training/Fault 4 Location 2/scenario_%d-5.mat", event_index), ...
+    sprintf("D:/data/training/Fault 5 Location 2/scenario_%d-6.mat", event_index), ...
+    sprintf("D:/data/training/Fault 6 Location 2/scenario_%d-7.mat", event_index), ...
+    sprintf("D:/data/training/Fault 7 Location 2/scenario_%d-8.mat", event_index), ...
+    sprintf("D:/data/training/Fault 8 Location 2/scenario_%d-9.mat", event_index), ...
+    sprintf("D:/data/training/Fault 9 Location 2/scenario_%d-10.mat", event_index), ...
+    sprintf("D:/data/training/Fault 10 Location 2/scenario_%d-11.mat", event_index), ...
+    sprintf("D:/data/training/Fault 11 Location 2/scenario_%d-12.mat", event_index), ...
+  ];
+end
+
+function [filenames] = all_nominal_events(event_index)
+  % Get filenames for each fault type at the generator
+  arguments
+    event_index = 50;
+  end
+  event_index = max([1, event_index]);
+  event_index = min([event_index, 200]);
+
+  filenames = [...
+    sprintf("D:/data/training/Load step 1/scenario_%d-24.mat", event_index), ...
+    sprintf("D:/data/training/Load step 2/scenario_%d-25.mat", event_index), ...
+    sprintf("D:/data/training/Load step 3/scenario_%d-26.mat", event_index), ...
+    sprintf("D:/data/training/No events/scenario_%d-1.mat", event_index), ...
+  ];
+end
+
+function [filenames] = ieee1547_edge_cases(event_index)
+% Get filenames for IEEE 1547 edge cases
+  arguments
+    event_index = 50;
+  end
+  event_index = max([1, event_index]);
+  event_index = min([event_index, 200]);
+
+  filenames = [...
+    sprintf("D:/data/training/Load step 2/scenario_%d-25.mat", event_index), ...
+    sprintf("D:/data/training/Prime mover loss/scenario_%d-27.mat", event_index), ... 
+    sprintf("D:/data/training/No events/scenario_%d-1.mat", event_index), ...
+  ];
 end
