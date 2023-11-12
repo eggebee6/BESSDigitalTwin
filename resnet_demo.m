@@ -59,7 +59,7 @@ gp = global_params();
 num_actions = DTInfo.initialize_scenario_labels(training_data_dir);
 
 if (gpus_available > 0)
-  mini_batch_size = floor(gp.samples_per_cycle / gp.min_sequence_len) * 128;
+  mini_batch_size = floor(gp.samples_per_cycle / gp.min_sequence_len) * 64;
 else
   mini_batch_size = 3;    % TODO: This is a small value for test purposes only
 end
@@ -91,6 +91,7 @@ validation_ds = transform(validation_ds, ...
   @(ds_in) dtinfo_ds_transform(ds_in));
 
 % Create minibatch queues
+% Note: pay attention to formatting!
 training_batch_queue = minibatchqueue(training_ds, ...
   'MiniBatchFormat', {'CTB', 'CTB', 'CTB'}, ...
   'MiniBatchSize', mini_batch_size, ...
@@ -126,7 +127,8 @@ else
   model_params.num_res_blocks = 5;
 
   model_params.encoder_hidden_size = gp.num_features * 16;
-  model_params.latent_dims = 6;
+  %model_params.latent_dims = 6;
+  model_params.latent_dims = gp.num_features;   % TODO: Not this!
 
   model_params.label_count = num_actions;
   
@@ -144,8 +146,6 @@ training_params.best_validation_loss = [];
 training_params.using_gpu = gpus_available > 0;
 
 training_params.min_kl_scaling_loss = 10000;
-
-training_params.action_loss_factor = 400;
 
 % Initialize output, counters, etc.
 create_output_dir();
@@ -168,6 +168,8 @@ if (has_gui)
 end
 
 % Start training
+display_action_values();
+
 fprintf('Starting training, %s\n', datetime());
 try
   while epoch < epoch_count && ~stop_requested(monitor)
@@ -193,24 +195,36 @@ try
       % Evaluate and update model with a training batch
       [training_data, error_vectors, labels] = next(training_batch_queue);
 
-      % Reconstruction phase
-      [losses, grads, training_params] = dlfeval(@evaluate_resnet_recon, ...
-        model, ...
-        training_data, error_vectors, ...
-        training_params, grads);
-      [model, training_params] = update_resnet_recon(model, losses, grads, training_params);
+      include_reconstruction = false;
+      include_action_rec = true;
 
-      monitor_losses.recon_loss = losses.recon_loss;
-      monitor_losses.kl_loss = losses.kl_loss;
+      if (include_reconstruction)
+        % Reconstruction phase
+        [losses, grads, training_params] = dlfeval(@evaluate_resnet_recon, ...
+          model, ...
+          training_data, error_vectors, ...
+          training_params, grads);
+        [model, training_params] = update_resnet_recon(model, losses, grads, training_params);
+  
+        monitor_losses.recon_loss = losses.recon_loss;
+        monitor_losses.kl_loss = losses.kl_loss;
+      else
+        monitor_losses.recon_loss = dlarray(0);
+        monitor_losses.kl_loss = dlarray(0);
+      end
 
-      % Action recommendation phase
-      [losses, grads, training_params] = dlfeval(@evaluate_resnet_action, ...
-        model, ...
-        training_data, labels, ...
-        training_params, grads);
-      [model, training_params] = update_resnet_action(model, losses, grads, training_params);
-
-      monitor_losses.action_loss = losses.action_loss;
+      if (include_action_rec)
+        % Action recommendation phase
+        [losses, grads, training_params] = dlfeval(@evaluate_resnet_action, ...
+          model, ...
+          training_data, labels, ...
+          training_params, grads);
+        [model, training_params] = update_resnet_action(model, losses, grads, training_params);
+  
+        monitor_losses.action_loss = losses.action_loss;
+      else
+        monitor_losses.action_loss = dlarray(0);
+      end
 
       total_loss = ...
         monitor_losses.recon_loss + ...
@@ -432,5 +446,13 @@ function [validation_losses] = perform_validation(model, training_data, error_ve
     if ~isempty(csv_file_id)
       fclose(csv_file_id);
     end
+  end
+end
+
+function display_action_values()
+  fprintf('Labels:\n');
+  for i = DTInfo.scenario_action_map.keys
+    [~, action_value] = max(DTInfo.get_scenario_label(string(i)));
+    fprintf('  %s: %d\n', string(i), action_value);
   end
 end

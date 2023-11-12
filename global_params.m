@@ -29,8 +29,8 @@ function [gp] = global_params()
     params.iLo_err_scale = 1;
 
     % Minimum number of samples needed for sequence processing
-    params.min_sequence_len = params.samples_per_cycle;
-    params.strides_per_sequence = 2;
+    params.min_sequence_len = 16 * floor(params.samples_per_cycle / 16);
+    params.strides_per_sequence = 3;
     
   end
   gp = params;

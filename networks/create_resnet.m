@@ -11,7 +11,9 @@ function [model, training_params] = create_resnet(model_params)
   model.min_sequence_len = gp.min_sequence_len;
   model.label_count = model_params.label_count;
 
-  ar_gru_hidden_size = 16;
+  % 2x downsampling per layer, give RNN enough hidden length for one sequence
+  ar_downsampling_layers = 4;
+  ar_rnn_hidden_len = floor(gp.min_sequence_len / (2 ^ ar_downsampling_layers));
 
 
   %% Create encoder
@@ -203,33 +205,37 @@ function [model, training_params] = create_resnet(model_params)
   action_lgraph = layerGraph();
 
   ar_input_name = 'ar_input';
+  ar_input_fc1_name = 'ar_input_fc1';
+  ar_input_fc1_act_name = 'ar_input_fc1_act';
+  ar_input_fc2_name = 'ar_input_fc2';
 
   action_lgraph = addLayers(action_lgraph, [...
     sequenceInputLayer(latent_dims, 'Name', ar_input_name, ...
       'Normalization', 'none', ...
       'MinLength', gp.min_sequence_len)
+    
+    fullyConnectedLayer(latent_dims, 'Name', ar_input_fc1_name)
+    tanhLayer('Name', ar_input_fc1_act_name);
+
+    fullyConnectedLayer(encoder_hidden_size, 'Name', ar_input_fc2_name)
   ]);
 
   % Add resnet-like blocks
-  incoming_connection_name = ar_input_name;
-  for i = 3:-1:1
-    num_res_neurons = gp.num_features * (1 + 3 - i);
+  incoming_connection_name = ar_input_fc2_name;
+  for i = ar_downsampling_layers:-1:1
+    num_res_neurons = gp.num_features * (1 + ar_downsampling_layers - i);
     res_filter_size = 3;
 
     % Add convolution layers
     res_conv1_name = sprintf('ar_res%d_conv1', i);
     res_conv_act_name = sprintf('ar_res%d_conv_act', i);
     res_conv2_name = sprintf('ar_res%d_conv2', i);
-    res_pool_name = sprintf('ar_res%d_pool', i);
 
     action_lgraph = addLayers(action_lgraph, [...
       convolution1dLayer(res_filter_size, num_res_neurons, 'Name', res_conv1_name, ...
         'Padding', 'same', ...
         'Stride', 1)
       reluLayer('Name', res_conv_act_name)
-      maxPooling1dLayer(3, 'Name', res_pool_name, ...
-        'Padding', 'same', ...
-        'Stride', 1)
       convolution1dLayer(res_filter_size, num_res_neurons, 'Name', res_conv2_name, ...
         'Padding', 'same', ...
         'Stride', 1)
@@ -240,8 +246,12 @@ function [model, training_params] = create_resnet(model_params)
     % Add projection layer
     res_fc_proj_name = sprintf('ar_res%d_proj', i);
 
+    %action_lgraph = addLayers(action_lgraph, ...
+    %  fullyConnectedLayer(num_res_neurons, 'Name', res_fc_proj_name));
     action_lgraph = addLayers(action_lgraph, ...
-      fullyConnectedLayer(num_res_neurons, 'Name', res_fc_proj_name));
+      convolution1dLayer(3, num_res_neurons, 'Name', res_fc_proj_name, ...
+        'Padding', 'same', ...
+        'Stride', 1));
 
     action_lgraph = connectLayers(action_lgraph, incoming_connection_name, res_fc_proj_name);
 
@@ -257,44 +267,78 @@ function [model, training_params] = create_resnet(model_params)
     action_lgraph = connectLayers(action_lgraph, res_conv2_name, sprintf('%s/in1', res_sum_name));
     action_lgraph = connectLayers(action_lgraph, res_fc_proj_name, sprintf('%s/in2', res_sum_name));
 
+    % Add pooling
+    res_pool_name = sprintf('ar_res%d_pool', i);
+
+    action_lgraph = addLayers(action_lgraph, ...
+      maxPooling1dLayer(3, 'Name', res_pool_name, ...
+        'Padding', 'same', ...
+        'Stride', 2));
+    
+    action_lgraph = connectLayers(action_lgraph, res_sum_act_name, res_pool_name);
+
     % Update incoming connection name
-    incoming_connection_name = res_sum_act_name;
+    incoming_connection_name = res_pool_name;
   end
   res_output_name = incoming_connection_name;
 
-  % Add hidden layers
-  ar_hidden_conv_name = 'ar_hidden_conv';
-  ar_hidden_conv_act_name = 'ar_hidden_conv_act';
-  ar_gru_name = 'ar_hidden_gru';
-  ar_gru_act_name = 'ar_hidden_gru_act';
+  % Add hidden and RNN layers
+  ar_rnn_name = 'ar_hidden_rnn';
   ar_hidden1_name = 'ar_hidden1';
   ar_hidden1_act_name = 'ar_hidden1_act';
   ar_hidden2_name = 'ar_hidden2';
-  ar_hidden2_act_name = 'ar_hidden2_act';
-  ar_hidden_output = 'ar_hidden_out';
+  %ar_hidden2_act_name = 'ar_hidden2_act';
+
+  action_lgraph = addLayers(action_lgraph, [...
+    fullyConnectedLayer(encoder_hidden_size, 'Name', ar_hidden1_name)
+    reluLayer('Name', ar_hidden1_act_name)
+
+    lstmLayer(ar_rnn_hidden_len, 'Name', ar_rnn_name, ...
+      'OutputMode', 'sequence')
+
+    fullyConnectedLayer(model_params.label_count, 'Name', ar_hidden2_name)
+    %reluLayer('Name', ar_hidden2_act_name)
+  ]);
+
+  action_lgraph = connectLayers(action_lgraph, res_output_name, ar_hidden1_name);
+
+  % Add RNN bypass layers
+  ar_bypass_conv_name = 'ar_bypass_conv';
+  ar_bypass_conv_act_name = 'ar_bypass_conv_act';
+  ar_bypass_fc1_name = 'ar_bypass_fc1';
+  ar_bypass_fc1_act_name = 'ar_bypass_fc1_act';
+  ar_bypass_fc2_name = 'ar_bypass_fc2';
+
+  action_lgraph = addLayers(action_lgraph, [...
+    convolution1dLayer(3, encoder_hidden_size, 'Name', ar_bypass_conv_name, ...
+      'Padding', 'same', ...
+      'Stride', 1)
+    reluLayer('Name', ar_bypass_conv_act_name)
+
+    fullyConnectedLayer(encoder_hidden_size, 'Name', ar_bypass_fc1_name)
+    reluLayer('Name', ar_bypass_fc1_act_name)
+
+    fullyConnectedLayer(model_params.label_count, 'Name', ar_bypass_fc2_name)
+  ]);
+
+  action_lgraph = connectLayers(action_lgraph, res_output_name, ar_bypass_conv_name);
+
+  % Add summation and output layers
+  ar_out_sum_name = 'ar_out_sum';
+  ar_out_sum_act_name = 'ar_out_sum_act';
+  ar_out_fc_name = 'ar_out_fc';
   ar_output_name = 'ar_output';
 
   action_lgraph = addLayers(action_lgraph, [...
-    convolution1dLayer(3, gp.num_features, 'Name', ar_hidden_conv_name, ...
-      'Padding', 'same', ...
-      'Stride', 1)
-    reluLayer('Name', ar_hidden_conv_act_name)
+    additionLayer(2, 'Name', ar_out_sum_name)
+    reluLayer('Name', ar_out_sum_act_name)
 
-    fullyConnectedLayer(gp.num_features, 'Name', ar_hidden1_name)
-    reluLayer('Name', ar_hidden1_act_name)
-
-    gruLayer(ar_gru_hidden_size, 'Name', ar_gru_name, ...
-      'OutputMode', 'sequence')
-    reluLayer('Name', ar_gru_act_name)
-
-    fullyConnectedLayer(encoder_hidden_size, 'Name', ar_hidden2_name)
-    reluLayer('Name', ar_hidden2_act_name)
-
-    fullyConnectedLayer(model_params.label_count, 'Name', ar_hidden_output)    
+    fullyConnectedLayer(model_params.label_count, 'Name', ar_out_fc_name)
     softmaxLayer('Name', ar_output_name)
   ]);
 
-  action_lgraph = connectLayers(action_lgraph, res_output_name, ar_hidden_conv_name);
+  action_lgraph = connectLayers(action_lgraph, ar_hidden2_name, sprintf('%s/in1', ar_out_sum_name));
+  action_lgraph = connectLayers(action_lgraph, ar_bypass_fc2_name, sprintf('%s/in2', ar_out_sum_name));
 
 
   %% Assemble the model

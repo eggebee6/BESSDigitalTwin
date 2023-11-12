@@ -21,10 +21,10 @@ try
 
   latent_dims = model.latent_dims;
   
-  labels = mean(labels, dim_T);
+  %labels = mean(labels, dim_T);
 
 %% Encode input
-  encoder_output = forward(model.encoder, training_data);
+  %encoder_output = forward(model.encoder, training_data);
 
   % Debug stuff
   %if (any(~isfinite(encoder_output), 'all'))
@@ -33,21 +33,27 @@ try
 
 %% Sample latent space, reconstruct input, and predict action
   % Get latent sample
-  latent_sample = forward(model.latent_sampler, encoder_output);
+  %latent_sample = forward(model.latent_sampler, encoder_output);
 
-  % Get action
-  action_output = forward(model.action_recommender, latent_sample);
+  action_loss = dlarray(0);
+  for i = 1:monte_carlo_reps
+    % Get action
+    %action_output = forward(model.action_recommender, latent_sample);
+    action_output = forward(model.action_recommender, training_data);
+    
+    % Calculate action loss
+    %action_output = mean(action_output, dim_T);
+    action_loss = action_loss + crossentropy(action_output, labels);
   
-  % Calculate action loss
-  action_output = mean(action_output, dim_T);
-  action_loss = crossentropy(action_output, labels);
+    % Debug stuff
+    %if ~isfinite(action_loss)
+    %  error('Bad value in action loss');
+    %elseif (action_loss < 0)
+    %  error('Negative in action loss');
+    %end
+  end
 
-  % Debug stuff
-  %if ~isfinite(action_loss)
-  %  error('Bad value in action loss');
-  %elseif (action_loss < 0)
-  %  error('Negative in action loss');
-  %end
+  action_loss = action_loss ./ monte_carlo_reps;
 
 %% Calculate loss and gradients
 
@@ -59,10 +65,11 @@ try
     losses.action_loss;
 
   % Get gradients
-  [grads.encoder_action, grads.action_recommender] = ...
-    dlgradient(losses.total_action_loss, ...
-      model.encoder.Learnables, ...
-      model.action_recommender.Learnables);
+  %[grads.encoder_action, grads.action_recommender] = ...
+  %  dlgradient(losses.total_action_loss, ...
+  %    model.encoder.Learnables, ...
+  %    model.action_recommender.Learnables);
+  grads.action_recommender = dlgradient(losses.total_action_loss, model.action_recommender.Learnables);
 
   % Debug stuff
   %if (any(~isfinite(grads.encoder{1, 3}{1}), 'all') || ...
