@@ -13,7 +13,7 @@ function ds_data = dtinfo_ds_reader(filename)
 
   % Get feature training data
   feature_training_data = DTInfo.get_feature_training_input(filedata.dt_info)';
-  ds_data{1} = feature_training_data(:, 1:gp.samples_per_cycle * 5);
+  ds_data{1} = feature_training_data(:, 1:gp.samples_per_cycle * 6);
 
   % Get scenario name
   ds_data{2} = DTInfo.get_scenario_name(filedata.dt_info);
