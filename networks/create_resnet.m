@@ -51,12 +51,12 @@ function [model, training_params] = create_resnet(model_params)
     encoder_lgraph = connectLayers(encoder_lgraph, incoming_connection_name, res_conv1_name);
 
     % Add projection layer
-    res_fc_proj_name = sprintf('enc_res%d_proj', i);
+    res_conv_proj_name = sprintf('enc_res%d_proj', i);
 
     encoder_lgraph = addLayers(encoder_lgraph, ...
-      fullyConnectedLayer(num_res_neurons, 'Name', res_fc_proj_name));
+      fullyConnectedLayer(num_res_neurons, 'Name', res_conv_proj_name));
 
-    encoder_lgraph = connectLayers(encoder_lgraph, incoming_connection_name, res_fc_proj_name);
+    encoder_lgraph = connectLayers(encoder_lgraph, incoming_connection_name, res_conv_proj_name);
 
     % Add summation layers
     res_sum_name = sprintf('enc_res%d_sum', i);
@@ -68,7 +68,7 @@ function [model, training_params] = create_resnet(model_params)
     ]);
 
     encoder_lgraph = connectLayers(encoder_lgraph, res_conv2_name, sprintf('%s/in1', res_sum_name));
-    encoder_lgraph = connectLayers(encoder_lgraph, res_fc_proj_name, sprintf('%s/in2', res_sum_name));
+    encoder_lgraph = connectLayers(encoder_lgraph, res_conv_proj_name, sprintf('%s/in2', res_sum_name));
 
     % Update incoming connection name
     incoming_connection_name = res_sum_act_name;
@@ -153,12 +153,12 @@ function [model, training_params] = create_resnet(model_params)
     decoder_lgraph = connectLayers(decoder_lgraph, incoming_connection_name, res_sum_act_name);
 
     % Add projection layer
-    res_fc_proj_name = sprintf('dec_res%d_proj', i);
+    res_conv_proj_name = sprintf('dec_res%d_proj', i);
 
     decoder_lgraph = addLayers(decoder_lgraph, ...
-      fullyConnectedLayer(num_res_neurons, 'Name', res_fc_proj_name));
+      fullyConnectedLayer(num_res_neurons, 'Name', res_conv_proj_name));
 
-    decoder_lgraph = connectLayers(decoder_lgraph, res_sum_act_name, res_fc_proj_name);
+    decoder_lgraph = connectLayers(decoder_lgraph, res_sum_act_name, res_conv_proj_name);
 
     % Add convolution layers
     res_conv1_name = sprintf('dec_res%d_tconv1', i);
@@ -185,7 +185,7 @@ function [model, training_params] = create_resnet(model_params)
     ]);
 
     decoder_lgraph = connectLayers(decoder_lgraph, res_conv1_name, sprintf('%s/in1', res_sum_name));
-    decoder_lgraph = connectLayers(decoder_lgraph, res_fc_proj_name, sprintf('%s/in2', res_sum_name));
+    decoder_lgraph = connectLayers(decoder_lgraph, res_conv_proj_name, sprintf('%s/in2', res_sum_name));
 
     % Update incoming connection name
     incoming_connection_name = res_sum_name;
@@ -205,23 +205,15 @@ function [model, training_params] = create_resnet(model_params)
   action_lgraph = layerGraph();
 
   ar_input_name = 'ar_input';
-  ar_input_fc1_name = 'ar_input_fc1';
-  ar_input_fc1_act_name = 'ar_input_fc1_act';
-  ar_input_fc2_name = 'ar_input_fc2';
 
   action_lgraph = addLayers(action_lgraph, [...
     sequenceInputLayer(latent_dims, 'Name', ar_input_name, ...
       'Normalization', 'none', ...
       'MinLength', gp.min_sequence_len)
-    
-    fullyConnectedLayer(latent_dims, 'Name', ar_input_fc1_name)
-    tanhLayer('Name', ar_input_fc1_act_name);
-
-    fullyConnectedLayer(encoder_hidden_size, 'Name', ar_input_fc2_name)
   ]);
 
   % Add resnet-like blocks
-  incoming_connection_name = ar_input_fc2_name;
+  incoming_connection_name = ar_input_name;
   for i = ar_downsampling_layers:-1:1
     num_res_neurons = gp.num_features * (1 + ar_downsampling_layers - i);
     res_filter_size = 3;
@@ -235,7 +227,7 @@ function [model, training_params] = create_resnet(model_params)
       convolution1dLayer(res_filter_size, num_res_neurons, 'Name', res_conv1_name, ...
         'Padding', 'same', ...
         'Stride', 1)
-      reluLayer('Name', res_conv_act_name)
+      tanhLayer('Name', res_conv_act_name)
       convolution1dLayer(res_filter_size, num_res_neurons, 'Name', res_conv2_name, ...
         'Padding', 'same', ...
         'Stride', 1)
@@ -244,16 +236,14 @@ function [model, training_params] = create_resnet(model_params)
     action_lgraph = connectLayers(action_lgraph, incoming_connection_name, res_conv1_name);
 
     % Add projection layer
-    res_fc_proj_name = sprintf('ar_res%d_proj', i);
+    res_conv_proj_name = sprintf('ar_res%d_proj', i);
 
-    %action_lgraph = addLayers(action_lgraph, ...
-    %  fullyConnectedLayer(num_res_neurons, 'Name', res_fc_proj_name));
     action_lgraph = addLayers(action_lgraph, ...
-      convolution1dLayer(3, num_res_neurons, 'Name', res_fc_proj_name, ...
+      convolution1dLayer(3, num_res_neurons, 'Name', res_conv_proj_name, ...
         'Padding', 'same', ...
         'Stride', 1));
 
-    action_lgraph = connectLayers(action_lgraph, incoming_connection_name, res_fc_proj_name);
+    action_lgraph = connectLayers(action_lgraph, incoming_connection_name, res_conv_proj_name);
 
     % Add summation layers
     res_sum_name = sprintf('ar_res%d_sum', i);
@@ -265,7 +255,7 @@ function [model, training_params] = create_resnet(model_params)
     ]);
 
     action_lgraph = connectLayers(action_lgraph, res_conv2_name, sprintf('%s/in1', res_sum_name));
-    action_lgraph = connectLayers(action_lgraph, res_fc_proj_name, sprintf('%s/in2', res_sum_name));
+    action_lgraph = connectLayers(action_lgraph, res_conv_proj_name, sprintf('%s/in2', res_sum_name));
 
     % Add pooling
     res_pool_name = sprintf('ar_res%d_pool', i);
@@ -287,7 +277,6 @@ function [model, training_params] = create_resnet(model_params)
   ar_hidden1_name = 'ar_hidden1';
   ar_hidden1_act_name = 'ar_hidden1_act';
   ar_hidden2_name = 'ar_hidden2';
-  %ar_hidden2_act_name = 'ar_hidden2_act';
 
   action_lgraph = addLayers(action_lgraph, [...
     fullyConnectedLayer(encoder_hidden_size, 'Name', ar_hidden1_name)
@@ -296,49 +285,46 @@ function [model, training_params] = create_resnet(model_params)
     lstmLayer(ar_rnn_hidden_len, 'Name', ar_rnn_name, ...
       'OutputMode', 'sequence')
 
-    fullyConnectedLayer(model_params.label_count, 'Name', ar_hidden2_name)
-    %reluLayer('Name', ar_hidden2_act_name)
+    fullyConnectedLayer(encoder_hidden_size, 'Name', ar_hidden2_name)
   ]);
 
   action_lgraph = connectLayers(action_lgraph, res_output_name, ar_hidden1_name);
 
   % Add RNN bypass layers
-  ar_bypass_conv_name = 'ar_bypass_conv';
-  ar_bypass_conv_act_name = 'ar_bypass_conv_act';
   ar_bypass_fc1_name = 'ar_bypass_fc1';
   ar_bypass_fc1_act_name = 'ar_bypass_fc1_act';
   ar_bypass_fc2_name = 'ar_bypass_fc2';
 
   action_lgraph = addLayers(action_lgraph, [...
-    convolution1dLayer(3, encoder_hidden_size, 'Name', ar_bypass_conv_name, ...
-      'Padding', 'same', ...
-      'Stride', 1)
-    reluLayer('Name', ar_bypass_conv_act_name)
-
     fullyConnectedLayer(encoder_hidden_size, 'Name', ar_bypass_fc1_name)
     reluLayer('Name', ar_bypass_fc1_act_name)
 
-    fullyConnectedLayer(model_params.label_count, 'Name', ar_bypass_fc2_name)
+    fullyConnectedLayer(encoder_hidden_size, 'Name', ar_bypass_fc2_name)
   ]);
 
-  action_lgraph = connectLayers(action_lgraph, res_output_name, ar_bypass_conv_name);
+  action_lgraph = connectLayers(action_lgraph, res_output_name, ar_bypass_fc1_name);
 
-  % Add summation and output layers
-  ar_out_sum_name = 'ar_out_sum';
-  ar_out_sum_act_name = 'ar_out_sum_act';
-  ar_out_fc_name = 'ar_out_fc';
+  % Add concatenation and output layers
+  ar_out_concat_name = 'ar_out_concat';
+  ar_out_concat_act_name = 'ar_out_concat_act';
+  ar_out_fc1_name = 'ar_out_fc1';
+  ar_out_fc1_act_name = 'ar_out_fc1_act';
+  ar_out_fc2_name = 'ar_out_fc2';
   ar_output_name = 'ar_output';
 
   action_lgraph = addLayers(action_lgraph, [...
-    additionLayer(2, 'Name', ar_out_sum_name)
-    reluLayer('Name', ar_out_sum_act_name)
+    concatenationLayer(1, 2, 'Name', ar_out_concat_name)
+    reluLayer('Name', ar_out_concat_act_name)
 
-    fullyConnectedLayer(model_params.label_count, 'Name', ar_out_fc_name)
+    fullyConnectedLayer(encoder_hidden_size, 'Name', ar_out_fc1_name)
+    reluLayer('Name', ar_out_fc1_act_name)
+
+    fullyConnectedLayer(model_params.label_count, 'Name', ar_out_fc2_name)
     softmaxLayer('Name', ar_output_name)
   ]);
 
-  action_lgraph = connectLayers(action_lgraph, ar_hidden2_name, sprintf('%s/in1', ar_out_sum_name));
-  action_lgraph = connectLayers(action_lgraph, ar_bypass_fc2_name, sprintf('%s/in2', ar_out_sum_name));
+  action_lgraph = connectLayers(action_lgraph, ar_hidden2_name, sprintf('%s/in1', ar_out_concat_name));
+  action_lgraph = connectLayers(action_lgraph, ar_bypass_fc2_name, sprintf('%s/in2', ar_out_concat_name));
 
 
   %% Assemble the model
