@@ -20,11 +20,10 @@ try
   monte_carlo_reps = training_params.monte_carlo_reps;
 
   latent_dims = model.latent_dims;
-  
-  %labels = mean(labels, dim_T);
+
 
 %% Encode input
-  %encoder_output = forward(model.encoder, training_data);
+  encoder_output = forward(model.encoder, training_data);
 
   % Debug stuff
   %if (any(~isfinite(encoder_output), 'all'))
@@ -33,13 +32,13 @@ try
 
 %% Sample latent space, reconstruct input, and predict action
   % Get latent sample
-  %latent_sample = forward(model.latent_sampler, encoder_output);
+  latent_sample = forward(model.latent_sampler, encoder_output);
 
   action_loss = dlarray(0);
   for i = 1:monte_carlo_reps
     % Get action
-    %action_output = forward(model.action_recommender, latent_sample);
-    action_output = forward(model.action_recommender, training_data);
+    action_output = forward(model.action_recommender, latent_sample);
+    %action_output = forward(model.action_recommender, training_data);
     
     % Calculate action loss
     %action_output = mean(action_output, dim_T);
