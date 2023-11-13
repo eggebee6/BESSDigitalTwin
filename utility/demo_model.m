@@ -1,15 +1,14 @@
-function [fig] = demo_model(model, dt_info, num_cycles, predict_full_sequence)
+function [fig] = demo_model(model, dt_info, num_cycles)
   arguments
     model = [];
     dt_info = [];
     num_cycles = 1;
-    predict_full_sequence = true;
   end
   gp = global_params();
 
   x_range = 1:(gp.samples_per_cycle * num_cycles);
 
-  testing_data = DTInfo.get_input_dlarray(dt_info);
+  testing_data = DTInfo.get_model_input(dt_info);
   testing_data = testing_data(:, :, x_range);
 
   scenario_name = DTInfo.get_scenario_name(dt_info);
@@ -31,53 +30,14 @@ function [fig] = demo_model(model, dt_info, num_cycles, predict_full_sequence)
   testing_data = testing_data(:, 1, :);
   size_B = 1;
 
-  % Scale data
-  testing_data(1:3, :) = testing_data(1:3, :) ./ gp.iLf_err_scale;
-  testing_data(4:6, :) = testing_data(4:6, :) ./ gp.vCf_err_scale;
-  testing_data(7:9, :) = testing_data(7:9, :) ./ gp.iLo_err_scale;
+  % Pass entire sequence through model
+  [action_output, decoder_output] = model_predict(model, dt_info);
 
-  if (predict_full_sequence)
-    % Pass entire sequence through model
-    encoder_output = predict(model.encoder, testing_data);
-    latent_sample = predict(model.latent_sampler, encoder_output);
-    decoder_output = predict(model.decoder, latent_sample);
-    action_output = predict(model.action_recommender, latent_sample);
+  % Get reconstruction from decoder output
+  recon_data = decoder_output;
 
-    % Get reconstruction from decoder output
-    recon_data = decoder_output;
-
-    [~, action_data] = max(action_output);
-  else
-    % Split data into sequences, getting prediction for each one
-    num_sequences = ceil(size_T / gp.min_sequence_len) - 1;
-    if (num_sequences < 1)
-      error('Input sequence length is too short');
-    end
+  [~, action_data] = max(action_output);
   
-    start_index = 1;
-    recon_data = dlarray(zeros(9, size_B, size_T));
-    action_data = dlarray(zeros(1, size_B, size_T));
-    for i = 1:num_sequences
-      end_index = start_index + gp.min_sequence_len - 1;
-  
-      % Forward data through model
-      encoder_output = predict(model.encoder, testing_data(:, :, start_index:end_index));
-      %latent_sample = predict(model.latent_sampler, encoder_output);
-      encoder_means = encoder_output(1:size(encoder_output, 1)/2, :, :);
-      decoder_output = predict(model.decoder, encoder_means);
-      action_output = predict(model.action_recommender, encoder_means);
-  
-      % Add decoder output to overall reconstruction
-      recon_data(:, :, start_index:end_index) = decoder_output;
-
-      % Repeat action for plot purposes
-      [~, max_action] = max(action_output);
-      action_data(:, :, start_index:end_index) = max_action;
-  
-      start_index = start_index + gp.min_sequence_len;
-    end
-  end
-
   % Reshape for convenience
   testing_data = reshape(testing_data, [size_C size_T]);
   recon_data = reshape(recon_data, [size(recon_data, 1) size(recon_data, 3)]);
@@ -88,15 +48,6 @@ function [fig] = demo_model(model, dt_info, num_cycles, predict_full_sequence)
   testing_data = testing_data(:, 1:max_len);
   recon_data = recon_data(:, 1:max_len);
   vgrid = vgrid(1:max_len, :)';
-
-  % Rescale data
-  recon_data(1:3, :) = recon_data(1:3, :) .* gp.iLf_err_scale;
-  recon_data(4:6, :) = recon_data(4:6, :) .* gp.vCf_err_scale;
-  recon_data(7:9, :) = recon_data(7:9, :) .* gp.iLo_err_scale;
-
-  testing_data(1:3, :) = testing_data(1:3, :) .* gp.iLf_err_scale;
-  testing_data(4:6, :) = testing_data(4:6, :) .* gp.vCf_err_scale;
-  testing_data(7:9, :) = testing_data(7:9, :) .* gp.iLo_err_scale;
 
   testing_err_vec = testing_data(1:9, :);
 

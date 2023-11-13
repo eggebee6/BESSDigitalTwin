@@ -178,13 +178,6 @@ classdef DTInfo
       name = strs(end);
     end
 
-    function [data] = get_input_dlarray(dt_info)
-    % Get the training data in CBT format
-      data = DTInfo.get_feature_training_input(dt_info)';
-      data = reshape(data, [size(data, 1), 1, size(data, 2)]);
-      data = dlarray(data, 'CBT');
-    end
-
     function [data] = get_err_dlarray(dt_info)
     % Get the error vectors in CBT format
       data = DTInfo.get_all_err(dt_info)';
@@ -213,6 +206,17 @@ classdef DTInfo
         dt_info.data(:, 1:9), ...     % State measurements
         dt_info.data(:, 17:19), ...   % Grid voltages
       ];
+    end
+
+    function [data] = get_model_input(dt_info)
+    % Get data for model prediction in CBT format
+      data = [...
+        dt_info.data(:, 20:28), ...   % Error vectors
+        dt_info.data(:, 1:9), ...     % State measurements
+        dt_info.data(:, 17:19), ...   % Grid voltages
+      ]';
+      data = reshape(data, [size(data, 1), 1, size(data, 2)]);
+      data = dlarray(data, 'CBT');
     end
 
     function [action_count] = initialize_scenario_labels(training_data_dir)
