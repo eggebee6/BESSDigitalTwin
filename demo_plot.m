@@ -17,6 +17,12 @@ num_cycles = 9;   % Number of cycles to include in plot (1 - 9)
 % all_load3_faults - All fault types at load 3 (location 4)
 % all_nominal_events - All nominal events (load steps and "no event")
 % ieee1547_edge_cases - Induction machine vs. prime mover loss vs. "no event"
+% specific_plots - Plot results from specific files
+
+specific_plots = @() [...
+  "D:/data/training/Fault 4 Location 2/scenario_200-5.mat", ...
+  "D:/data/training/Fault 4 Location 3/scenario_200-16.mat", ...
+];
 
 for demo_scenario_filename = all_fault_ab()   % TODO: Change this function for different plots
 
@@ -31,7 +37,7 @@ end
 function [filenames] = all_fault_ab(event_index)
   % Get filenames for line-to-line A-B fault (fault 1) at each location
   arguments
-    event_index = 50;
+    event_index = 200;
   end
   event_index = max([1, event_index]);
   event_index = min([event_index, 200]);
@@ -48,7 +54,7 @@ end
 function [filenames] = all_fault_bc(event_index)
   % Get filenames for line-to-line B-C fault (fault 1) at each location
   arguments
-    event_index = 50;
+    event_index = 200;
   end
   event_index = max([1, event_index]);
   event_index = min([event_index, 200]);
@@ -65,7 +71,7 @@ end
 function [filenames] = all_fault_ag(event_index)
   % Get filenames for line-to-ground A-G fault (fault 4) at each location
   arguments
-    event_index = 50;
+    event_index = 200;
   end
   event_index = max([1, event_index]);
   event_index = min([event_index, 200]);
@@ -82,7 +88,7 @@ end
 function [filenames] = all_fault_abg(event_index)
   % Get filenames for line-line-ground A-B-G fault (fault 7) at each location
   arguments
-    event_index = 50;
+    event_index = 200;
   end
   event_index = max([1, event_index]);
   event_index = min([event_index, 200]);
@@ -99,7 +105,7 @@ end
 function [filenames] = all_fault_abc(event_index)
   % Get filenames for three line fault (fault 11) at each location
   arguments
-    event_index = 50;
+    event_index = 200;
   end
   event_index = max([1, event_index]);
   event_index = min([event_index, 200]);
@@ -116,7 +122,7 @@ end
 function [filenames] = all_fault_abcg(event_index)
   % Get filenames for three line-to-ground fault (fault 10) at each location
   arguments
-    event_index = 50;
+    event_index = 200;
   end
   event_index = max([1, event_index]);
   event_index = min([event_index, 200]);
@@ -133,7 +139,7 @@ end
 function [filenames] = all_bus_faults(event_index)
   % Get filenames for each fault type on the bus
   arguments
-    event_index = 50;
+    event_index = 200;
   end
   event_index = max([1, event_index]);
   event_index = min([event_index, 200]);
@@ -156,7 +162,7 @@ end
 function [filenames] = all_gen_faults(event_index)
   % Get filenames for each fault type at the generator
   arguments
-    event_index = 50;
+    event_index = 200;
   end
   event_index = max([1, event_index]);
   event_index = min([event_index, 200]);
@@ -179,7 +185,7 @@ end
 function [filenames] = all_nominal_events(event_index)
   % Get filenames for each fault type at the generator
   arguments
-    event_index = 50;
+    event_index = 200;
   end
   event_index = max([1, event_index]);
   event_index = min([event_index, 200]);
@@ -195,7 +201,7 @@ end
 function [filenames] = ieee1547_edge_cases(event_index)
 % Get filenames for IEEE 1547 edge cases
   arguments
-    event_index = 50;
+    event_index = 200;
   end
   event_index = max([1, event_index]);
   event_index = min([event_index, 200]);
@@ -210,7 +216,7 @@ end
 function [filenames] = all_load1_faults(event_index)
 % Get filenames for each fault type by load 1 (location 6)
   arguments
-    event_index = 50;
+    event_index = 200;
   end
   event_index = max([1, event_index]);
   event_index = min([event_index, 200]);
@@ -233,7 +239,7 @@ end
 function [filenames] = all_load2_faults(event_index)
 % Get filenames for each fault type by load 2 (location 5)
   arguments
-    event_index = 50;
+    event_index = 200;
   end
   event_index = max([1, event_index]);
   event_index = min([event_index, 200]);
@@ -256,7 +262,7 @@ end
 function [filenames] = all_load3_faults(event_index)
 % Get filenames for each fault type by load 3 (location 4)
   arguments
-    event_index = 50;
+    event_index = 200;
   end
   event_index = max([1, event_index]);
   event_index = min([event_index, 200]);

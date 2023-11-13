@@ -20,7 +20,6 @@ function [fig] = demo_model(model, dt_info, num_cycles, predict_full_sequence)
   if isempty(event_timestep)
     event_timestep = 0;
   end
-  event_timestep = event_timestep / gp.Fs;
   
   dim_C = 1;
   dim_B = 2;
@@ -133,7 +132,15 @@ function [fig] = demo_model(model, dt_info, num_cycles, predict_full_sequence)
   action_data_len = size(action_data, 2);
   action_x_range = 16*(1:action_data_len) ./ gp.Fs;
 
-  rec_hist = histcounts(extractdata(action_data), 1:model.label_count+1) ./ action_data_len;
+  action_event_time = max([1, floor(event_timestep / 16)]);
+  correct_action = repmat(max_action, size_B, action_data_len)';
+  [~, no_action] = max(DTInfo.get_scenario_label("No events"));
+  correct_action(1:action_event_time, :) = no_action;
+
+  rec_hist = histcounts(extractdata(action_data(:, action_event_time:end)), 1:model.label_count+1) ./ action_data_len;
+
+  % Scale timestep to actual time
+  event_timestep = event_timestep / gp.Fs;
 
   % Create plots
   fig = tiledlayout(3, 2);
@@ -201,7 +208,7 @@ function [fig] = demo_model(model, dt_info, num_cycles, predict_full_sequence)
   nexttile;
   plot(...
     action_x_range, action_data(1, :)', '.', ...
-    action_x_range, repmat(max_action, size_B, action_data_len)', '-');
+    action_x_range, correct_action, '-');  %repmat(max_action, size_B, action_data_len)', '-');
 
   xline(event_timestep, 'k--');
 
@@ -236,6 +243,7 @@ function [fig] = demo_model(model, dt_info, num_cycles, predict_full_sequence)
   nexttile;
   bar(rec_hist');
   xline(max_action, 'k-');
+  yline(max(rec_hist), 'k:');
   ylim([0 1]);
   title('Recommendations');
   xlabel('Recommendation');
