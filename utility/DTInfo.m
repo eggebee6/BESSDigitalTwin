@@ -1,4 +1,8 @@
 classdef DTInfo
+  properties (Constant)
+      scenario_action_map = containers.Map;
+  end
+
   methods (Static)
     function [dt_info] = read_dt_info(filename)
     % Read DT data from a saved MAT file
@@ -175,10 +179,88 @@ classdef DTInfo
     end
 
     function [data] = get_input_dlarray(dt_info)
-    % Get the data formatted for use by neural networks with CBT format
+    % Get the training data in CBT format
+      data = DTInfo.get_feature_training_input(dt_info)';
+      data = reshape(data, [size(data, 1), 1, size(data, 2)]);
+      data = dlarray(data, 'CBT');
+    end
+
+    function [data] = get_err_dlarray(dt_info)
+    % Get the error vectors in CBT format
       data = DTInfo.get_all_err(dt_info)';
       data = reshape(data, [size(data, 1), 1, size(data, 2)]);
       data = dlarray(data, 'CBT');
+    end
+
+    function [data] = get_meas_dlarray(dt_info)
+    % Get the measurements in CBT format
+      data = DTInfo.get_all_meas(dt_info)';
+      data = reshape(data, [size(data, 1), 1, size(data, 2)]);
+      data = dlarray(data, 'CBT');
+    end
+
+    function [data] = get_vgrid_dlarray(dt_info)
+    % Get the grid voltages in CBT format
+      data = DTInfo.get_vgrid(dt_info)';
+      data = reshape(data, [size(data, 1), 1, size(data, 2)]);
+      data = dlarray(data, 'CBT');
+    end
+
+    function [data] = get_feature_training_input(dt_info)
+    % Get data for feature extraction
+      data = [...
+        dt_info.data(:, 20:28), ...   % Error vectors
+        dt_info.data(:, 1:9), ...     % State measurements
+        dt_info.data(:, 17:19), ...   % Grid voltages
+      ];
+    end
+
+    function [action_count] = initialize_scenario_labels(training_data_dir)
+    % Read scenario names from training data folder and create one-hot encoded labels
+      scenario_names = dir(training_data_dir);
+      scenario_names = {scenario_names.name};
+      scenario_names = scenario_names(~ismember(scenario_names, {'.', '..'}));
+      scenario_names = string(scenario_names);
+
+      action_values = cellfun(@(c) scenario_action(c), scenario_names);
+      action_values = string(unique(action_values));
+      action_count = length(action_values);
+
+      % Clear map
+      action_map = DTInfo.scenario_action_map;
+      action_map.remove(action_map.keys);
+
+      % Initialize map with action for each scenario
+      for name = scenario_names
+        action = string(scenario_action(name));
+        action_map(name) = onehotencode(action, 1, 'ClassNames', action_values);
+      end
+    end
+
+    function [label] = get_scenario_label(scenario_name)
+    % Get the one-hot encoded label for the scenario name
+      action_map = DTInfo.scenario_action_map;
+      label = action_map(scenario_name);
+    end
+
+    function [timestep] = get_event_timestep(dt_info)
+    % Get the timestep at which the scenario event occurs
+    % Only return times after the ESS is connected
+      timestep = [];
+      ess_time = find_ess_connect(dt_info);
+      event_time_funcs = {...
+        @find_fault_start, ...
+        @find_load_connect, ...
+        @find_pmloss, ...
+      };
+
+      for f = event_time_funcs
+        event_time = f{:}(dt_info);
+        if (~isempty(event_time) && (event_time > ess_time))
+          timestep = time_to_index(event_time);
+          break;
+        end
+      end
     end
     
   end

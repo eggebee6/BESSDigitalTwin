@@ -1,10 +1,9 @@
-function [losses, grads, training_params] = evaluate_resnet(model, training_data, error_vectors, labels, training_params, grads)
+function [losses, grads, training_params] = evaluate_resnet_recon(model, training_data, error_vectors, training_params, grads)
   losses = [];
 
   encoder_output = [];
   latent_sample = [];
   decoder_output = [];
-  action_output = [];
 
   % Debug stuff
   debug_max_loss = 1e20;
@@ -21,7 +20,6 @@ try
   monte_carlo_reps = training_params.monte_carlo_reps;
 
   latent_dims = model.latent_dims;
-
 
 %% Encode input
   encoder_output = forward(model.encoder, training_data);
@@ -53,9 +51,8 @@ try
   kl_loss = mean(kl_loss, dim_T);
   kl_loss = mean(kl_loss, dim_B);
 
-%% Sample latent space, reconstruct input, and predict action
+%% Sample latent space and reconstruct input
   recon_loss = dlarray(0);
-  action_loss = dlarray(0);
 
   for i = 1:monte_carlo_reps
     % Get latent sample
@@ -63,19 +60,15 @@ try
 
     % Reconstruct output
     decoder_output = forward(model.decoder, latent_sample);
-
-    % Get action
-    action_output = forward(model.action_recommender, latent_sample);
-
-    % Calculate losses
-    recon_loss = recon_loss + mse(decoder_output, error_vectors);
-    action_loss = action_loss + crossentropy(action_output, labels);
  
     % Debug stuff
     %if (any(~isfinite(latent_sample), 'all') || ...
     %    any(~isfinite(decoder_output), 'all'))
     %  error('Bad value in network outputs');
     %end
+  
+    % Calculate reconstruction loss
+    recon_loss = recon_loss + mse(decoder_output, error_vectors);
 
     % Debug stuff
     %if ~isfinite(recon_loss)
@@ -86,19 +79,14 @@ try
   end
 
   recon_loss = recon_loss ./ monte_carlo_reps;
-  action_loss = action_loss ./ monte_carlo_reps;
 
 %% Calculate loss and gradients
-% Total loss is the sum of reconstruction loss and KL divergence loss
 
   % Get reconstruction loss
   losses.recon_loss = recon_loss * training_params.recon_loss_factor;
 
-  % Get action loss
-  losses.action_loss = action_loss * training_params.action_loss_factor;
-
   % Adjust KL loss factor and get KL loss
-  kl_scaling_loss = losses.recon_loss + losses.action_loss;
+  kl_scaling_loss = losses.recon_loss;
   if (kl_scaling_loss > 0)
     training_params.kl_loss_factor = min([training_params.min_kl_scaling_loss / kl_scaling_loss, 1]);
     if (kl_scaling_loss < training_params.min_kl_scaling_loss)
@@ -109,31 +97,28 @@ try
   losses.kl_loss = kl_loss * training_params.kl_loss_factor;
   
   % Calculate total loss
-  losses.total_loss = ...
+  losses.total_recon_loss = ...
     losses.recon_loss + ...
-    losses.kl_loss + ...
-    losses.action_loss;
+    losses.kl_loss;
 
   % Get gradients
-  [grads.action_recommender, grads.decoder, grads.encoder] = ...
-    dlgradient(losses.total_loss, ...
-      model.action_recommender.Learnables, ...
+  [grads.decoder, grads.encoder_recon] = ...
+    dlgradient(losses.total_recon_loss, ...
       model.decoder.Learnables, ...
       model.encoder.Learnables);
 
   % Debug stuff
   %if (any(~isfinite(grads.decoder{1, 3}{1}), 'all') || ...
-  %    any(~isfinite(grads.encoder{1, 3}{1}), 'all') || ...
-  %    any(~isfinite(grads.action_recommender{1, 3}{1}), 'all'))
+  %    any(~isfinite(grads.encoder{1, 3}{1}), 'all'))
   %  error('Bad gradient');
   %end
-  if (losses.total_loss > 1e6)
+  if (losses.total_recon_loss > 1e6)
     error('Loss is too high');
   end
 
 catch ex
-  save('eval_debug.mat', 'model', 'training_params', ...
-    'encoder_output', 'latent_sample', 'decoder_output', 'action_output', ...
+  save('eval_recon_debug.mat', 'model', 'training_params', ...
+    'encoder_output', 'latent_sample', 'decoder_output', ...
     'losses', 'grads');
   rethrow(ex);
 end

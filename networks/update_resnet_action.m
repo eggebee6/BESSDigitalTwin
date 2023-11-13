@@ -1,4 +1,4 @@
-function [model, training_params] = update_resnet(model, losses, grads, training_params)
+function [model, training_params] = update_resnet_action(model, losses, grads, training_params)
 %% Update network
 try
   % Debug stuff
@@ -7,30 +7,14 @@ try
   %end
 
   % Update encoder
-  [model.encoder, training_params.enc_grad_avg, training_params.enc_grad_avg2] = adamupdate(...
-    model.encoder, grads.encoder, ...
-    training_params.enc_grad_avg, training_params.enc_grad_avg2, ...
-    training_params.iteration, training_params.learn_rate);
+  %[model.encoder, training_params.enc_grad_act_avg, training_params.enc_grad_act_avg2] = adamupdate(...
+  %  model.encoder, grads.encoder_action, ...
+  %  training_params.enc_grad_act_avg, training_params.enc_grad_act_avg2, ...
+  %  training_params.iteration, training_params.learn_rate);
 
   % Debug stuff
   %if check_learnables(model.encoder.Learnables)
   %  error('Bad encoder weights after update');
-  %end
-
-  % Debug stuff
-  %if check_learnables(model.decoder.Learnables)
-  %  error('Bad decoder weights before update');
-  %end
-
-  % Update decoder
-  [model.decoder, training_params.dec_grad_avg, training_params.dec_grad_avg2] = adamupdate(...
-    model.decoder, grads.decoder, ...
-    training_params.dec_grad_avg, training_params.dec_grad_avg2, ...
-    training_params.iteration, training_params.learn_rate);
-
-  % Debug stuff
-  %if check_learnables(model.decoder.Learnables)
-  %  error('Bad decoder weights after update');
   %end
 
   % Debug stuff
@@ -50,7 +34,7 @@ try
   %end
 
 catch ex
-  save('update_debug.mat', ...
+  save('update_action_debug.mat', ...
     'model', 'losses', 'grads', 'training_params');
   rethrow(ex);  
 end

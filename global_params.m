@@ -17,7 +17,11 @@ function [gp] = global_params()
 
     % Features:
     % err_iLf_abc, err_vCf_abc, err_iLo_abc
-    params.num_features = 9;
+    % meas_iLf_abc, meas_vCf_abc, meas_iLo_abc
+    % vgrid
+    params.num_features = 21;
+    
+    params.num_err_components = 9;
 
     % Scale values for error vectors
     params.iLf_err_scale = 8;
@@ -25,9 +29,8 @@ function [gp] = global_params()
     params.iLo_err_scale = 1;
 
     % Minimum number of samples needed for sequence processing
-    params.min_sequence_len = floor(params.samples_per_cycle / 8);
-    
-    params.strides_per_sequence = 4;
+    params.min_sequence_len = 16 * floor(params.samples_per_cycle / 16);
+    params.strides_per_sequence = 3;
     
   end
   gp = params;
