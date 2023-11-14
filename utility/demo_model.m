@@ -30,6 +30,7 @@ function [fig] = demo_model(model, dt_info, num_cycles)
   testing_data = testing_data(:, 1, :);
   size_B = 1;
 
+  %% Forward data through model
   % Pass entire sequence through model
   [action_output, decoder_output] = model_predict(model, dt_info);
 
@@ -51,6 +52,7 @@ function [fig] = demo_model(model, dt_info, num_cycles)
 
   testing_err_vec = testing_data(1:9, :);
 
+  %% Plot results
   % Set plot parameters
   x_range = (1:max_len) ./ gp.Fs;
   start_skip = 2;
@@ -81,12 +83,16 @@ function [fig] = demo_model(model, dt_info, num_cycles)
   % Misc calculations
   [~, max_action] = max(correct_action);
   action_data_len = size(action_data, 2);
-  action_x_range = 16*(1:action_data_len) ./ gp.Fs;
 
   action_event_time = max([1, floor(event_timestep / 16)]);
-  correct_action = repmat(max_action, size_B, action_data_len)';
+  correct_action = repmat(max_action, size_B, action_data_len);
   [~, no_action] = max(DTInfo.get_scenario_label("No events"));
-  correct_action(1:action_event_time, :) = no_action;
+  correct_action(:, 1:action_event_time) = no_action;
+
+  action_data_len = min([floor(max_len/16), action_data_len]);
+  action_data = action_data(:, 1:action_data_len);
+  correct_action = correct_action(:, 1:action_data_len);
+  action_x_range = 16*(1:action_data_len) ./ gp.Fs;
 
   rec_hist = histcounts(extractdata(action_data(:, action_event_time:end)), 1:model.label_count+1) ./ action_data_len;
 
@@ -159,15 +165,34 @@ function [fig] = demo_model(model, dt_info, num_cycles)
   nexttile;
   plot(...
     action_x_range, action_data(1, :)', '.', ...
-    action_x_range, correct_action, '-');  %repmat(max_action, size_B, action_data_len)', '-');
+    action_x_range, correct_action', '-');
 
   xline(event_timestep, 'k--');
 
   xlim('tight');
   ylim(y_lim_action);
+
+  % TODO: Better y-axis labelling
+  action_names = [...
+    "Disconnect (bus fault)", ...
+    "Grid form (gen fault)", ...
+    "No action (IM load)", ...
+    "No action (LVAC load)", ...
+    "Ride thru (load fault)", ...
+    "No action (no event)", ...
+    "Grid form (PM loss)", ...
+  ];
+
+  ax = gca;
+  ax.YGrid = 'on';
+  ax.GridLineStyle = '--';
+  ax.YTick = 1:7;
+  ax.YTickLabel = action_names;
+  ax.YAxisLocation = 'right';
+
   title('Recommendations over time');
   xlabel('Time (s)');
-  ylabel('Action')
+  %ylabel('Action')
 
   % Plot iLo error
   nexttile();
