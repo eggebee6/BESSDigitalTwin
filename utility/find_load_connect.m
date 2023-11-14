@@ -1,9 +1,4 @@
-function [event_time] = find_load_connect(dt_info, load_number)
-  arguments
-    dt_info = [];
-    load_number = 2;
-  end
-  
+function [event_time] = find_load_connect(dt_info)
   event_time = [];
   max_strlen = 255;
   
@@ -42,11 +37,11 @@ function [event_time] = find_load_connect(dt_info, load_number)
     end
   end
   
-  if (var_load1_enable && (load_number == 1))
+  if (var_load1_enable)
     event_time = var_load1_start;
-  elseif (var_load2_enable && (load_number == 2))
+  elseif (var_load2_enable)
     event_time = var_load2_start;
-  elseif (var_load3_enable && (load_number == 3))
+  elseif (var_load3_enable)
     event_time = var_load3_start;
   end
   
