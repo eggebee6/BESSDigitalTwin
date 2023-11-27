@@ -39,7 +39,8 @@ function [action] = scenario_action(scenario_name)
     if (location == 2)
       action = sprintf('IM loadstep');      % Ride through
     else
-      action = sprintf('LVAC loadstep');    % Ride through
+      %action = sprintf('LVAC loadstep');    % Ride through
+      action = sprintf('No action');
     end
 
   elseif ( (length(str) >= 2) && (join(str(1:2), ' ') == "No events") )

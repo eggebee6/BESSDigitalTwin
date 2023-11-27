@@ -62,21 +62,24 @@ function [fig] = demo_model(model, dt_info, num_cycles)
     max(recon_data(1:3, start_skip:end), [], 'all'), ...
     10
   ]);
-  y_lim_ilf = [0 extractdata(y_lim_ilf)];
+  %y_lim_ilf = [0 extractdata(y_lim_ilf)];
+  y_lim_ilf = [0 20];
 
   y_lim_vcf = max([...
     max(testing_err_vec(4:6, start_skip:end), [], 'all'), ...
     max(recon_data(4:6, start_skip:end), [], 'all'), ...
     4
   ]);
-  y_lim_vcf = [0 extractdata(y_lim_vcf)];
+  %y_lim_vcf = [0 extractdata(y_lim_vcf)];
+  y_lim_vcf = [0 10];
 
   y_lim_ilo = max([...
     max(testing_err_vec(7:9, start_skip:end), [], 'all'), ...
     max(recon_data(7:9, start_skip:end), [], 'all'), ...
     4
   ]);
-  y_lim_ilo = [0 extractdata(y_lim_ilo)];
+  %y_lim_ilo = [0 extractdata(y_lim_ilo)];
+  y_lim_ilo = [0 14];
 
   y_lim_action = [0 model.label_count + 1];
 
@@ -94,7 +97,8 @@ function [fig] = demo_model(model, dt_info, num_cycles)
   correct_action = correct_action(:, 1:action_data_len);
   action_x_range = 16*(1:action_data_len) ./ gp.Fs;
 
-  rec_hist = histcounts(extractdata(action_data(:, action_event_time:end)), 1:model.label_count+1) ./ action_data_len;
+  rec_hist = histcounts(extractdata(action_data(:, action_event_time:end)), 1:model.label_count+1);
+  rec_hist = rec_hist ./ sum(rec_hist);
 
   % Scale timestep to actual time
   event_timestep = event_timestep / gp.Fs;
@@ -177,9 +181,8 @@ function [fig] = demo_model(model, dt_info, num_cycles)
     "Disconnect (bus fault)", ...
     "Grid form (gen fault)", ...
     "No action (IM load)", ...
-    "No action (LVAC load)", ...
     "Ride thru (load fault)", ...
-    "No action (no event)", ...
+    "No action", ...
     "Grid form (PM loss)", ...
   ];
 
@@ -217,13 +220,14 @@ function [fig] = demo_model(model, dt_info, num_cycles)
 
   % Plot action recommendation histograms
   nexttile;
-  bar(rec_hist');
+  bar(rec_hist' .* 100);
   xline(max_action, 'k-');
-  yline(max(rec_hist), 'k:');
-  ylim([0 1]);
+  yline(max(rec_hist .* 100), 'k:');
+  ylim([0 100]);
   title('Recommendations');
   xlabel('Recommendation');
-  ylabel('Action');
+  ylabel('Post-event %');
+  ytickformat('percentage');
   legend('Recommended', 'Correct', ...
     'Location', 'northeastoutside');
 
