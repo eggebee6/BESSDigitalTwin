@@ -1,4 +1,4 @@
-function [actions, error_vector_recon] = model_predict(model, dt_info, max_len)
+function [actions, error_vector_recon, latent_codes] = model_predict(model, dt_info, max_len)
   arguments
     model = [];
     dt_info = [];
@@ -9,6 +9,7 @@ function [actions, error_vector_recon] = model_predict(model, dt_info, max_len)
   encoder_output = [];
   error_vector_recon = [];
   actions = [];
+  latent_codes = [];
 
   if (max_len < 1)
     max_len = gp.samples_per_cycle * 10;
@@ -28,17 +29,19 @@ try
   data(4:6, :) = data(4:6, :) ./ gp.vCf_err_scale;
   data(7:9, :) = data(7:9, :) ./ gp.iLo_err_scale;
 
+  data(19:21, :) = data(19:21, :) ./ gp.voltage_pu;
+
   %% Forward data through model
-  encoder_output = forward(model.encoder, data);
+  encoder_output = predict(model.encoder, data);
 
   % Mean is the max-likelihood estimator, no sampling for prediction
-  encoder_means = encoder_output(1:model.latent_dims, :, :);
+  latent_codes = encoder_output(1:model.latent_dims, :, :);
 
   % Reconstruct error vectors
-  error_vector_recon = forward(model.decoder, encoder_means);
+  error_vector_recon = predict(model.decoder, latent_codes);
 
   % Get action recommendations
-  actions = forward(model.action_recommender, encoder_means);
+  actions = predict(model.action_recommender, latent_codes);
 
   % Rescale reconstructed data
   error_vector_recon(1:3, :) = error_vector_recon(1:3, :) .* gp.iLf_err_scale;
