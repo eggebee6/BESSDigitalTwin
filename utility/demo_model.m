@@ -1,15 +1,14 @@
-function [fig] = demo_model(model, dt_info, num_cycles, predict_full_sequence)
+function [fig] = demo_model(model, dt_info, num_cycles)
   arguments
     model = [];
     dt_info = [];
     num_cycles = 1;
-    predict_full_sequence = true;
   end
   gp = global_params();
 
   x_range = 1:(gp.samples_per_cycle * num_cycles);
 
-  testing_data = DTInfo.get_input_dlarray(dt_info);
+  testing_data = DTInfo.get_model_input(dt_info);
   testing_data = testing_data(:, :, x_range);
 
   scenario_name = DTInfo.get_scenario_name(dt_info);
@@ -31,53 +30,15 @@ function [fig] = demo_model(model, dt_info, num_cycles, predict_full_sequence)
   testing_data = testing_data(:, 1, :);
   size_B = 1;
 
-  % Scale data
-  testing_data(1:3, :) = testing_data(1:3, :) ./ gp.iLf_err_scale;
-  testing_data(4:6, :) = testing_data(4:6, :) ./ gp.vCf_err_scale;
-  testing_data(7:9, :) = testing_data(7:9, :) ./ gp.iLo_err_scale;
+  %% Forward data through model
+  % Pass entire sequence through model
+  [action_output, decoder_output] = model_predict(model, dt_info);
 
-  if (predict_full_sequence)
-    % Pass entire sequence through model
-    encoder_output = predict(model.encoder, testing_data);
-    latent_sample = predict(model.latent_sampler, encoder_output);
-    decoder_output = predict(model.decoder, latent_sample);
-    action_output = predict(model.action_recommender, latent_sample);
+  % Get reconstruction from decoder output
+  recon_data = decoder_output;
 
-    % Get reconstruction from decoder output
-    recon_data = decoder_output;
-
-    [~, action_data] = max(action_output);
-  else
-    % Split data into sequences, getting prediction for each one
-    num_sequences = ceil(size_T / gp.min_sequence_len) - 1;
-    if (num_sequences < 1)
-      error('Input sequence length is too short');
-    end
+  [~, action_data] = max(action_output);
   
-    start_index = 1;
-    recon_data = dlarray(zeros(9, size_B, size_T));
-    action_data = dlarray(zeros(1, size_B, size_T));
-    for i = 1:num_sequences
-      end_index = start_index + gp.min_sequence_len - 1;
-  
-      % Forward data through model
-      encoder_output = predict(model.encoder, testing_data(:, :, start_index:end_index));
-      %latent_sample = predict(model.latent_sampler, encoder_output);
-      encoder_means = encoder_output(1:size(encoder_output, 1)/2, :, :);
-      decoder_output = predict(model.decoder, encoder_means);
-      action_output = predict(model.action_recommender, encoder_means);
-  
-      % Add decoder output to overall reconstruction
-      recon_data(:, :, start_index:end_index) = decoder_output;
-
-      % Repeat action for plot purposes
-      [~, max_action] = max(action_output);
-      action_data(:, :, start_index:end_index) = max_action;
-  
-      start_index = start_index + gp.min_sequence_len;
-    end
-  end
-
   % Reshape for convenience
   testing_data = reshape(testing_data, [size_C size_T]);
   recon_data = reshape(recon_data, [size(recon_data, 1) size(recon_data, 3)]);
@@ -89,17 +50,9 @@ function [fig] = demo_model(model, dt_info, num_cycles, predict_full_sequence)
   recon_data = recon_data(:, 1:max_len);
   vgrid = vgrid(1:max_len, :)';
 
-  % Rescale data
-  recon_data(1:3, :) = recon_data(1:3, :) .* gp.iLf_err_scale;
-  recon_data(4:6, :) = recon_data(4:6, :) .* gp.vCf_err_scale;
-  recon_data(7:9, :) = recon_data(7:9, :) .* gp.iLo_err_scale;
-
-  testing_data(1:3, :) = testing_data(1:3, :) .* gp.iLf_err_scale;
-  testing_data(4:6, :) = testing_data(4:6, :) .* gp.vCf_err_scale;
-  testing_data(7:9, :) = testing_data(7:9, :) .* gp.iLo_err_scale;
-
   testing_err_vec = testing_data(1:9, :);
 
+  %% Plot results
   % Set plot parameters
   x_range = (1:max_len) ./ gp.Fs;
   start_skip = 2;
@@ -109,35 +62,43 @@ function [fig] = demo_model(model, dt_info, num_cycles, predict_full_sequence)
     max(recon_data(1:3, start_skip:end), [], 'all'), ...
     10
   ]);
-  y_lim_ilf = [0 extractdata(y_lim_ilf)];
+  %y_lim_ilf = [0 extractdata(y_lim_ilf)];
+  y_lim_ilf = [0 20];
 
   y_lim_vcf = max([...
     max(testing_err_vec(4:6, start_skip:end), [], 'all'), ...
     max(recon_data(4:6, start_skip:end), [], 'all'), ...
     4
   ]);
-  y_lim_vcf = [0 extractdata(y_lim_vcf)];
+  %y_lim_vcf = [0 extractdata(y_lim_vcf)];
+  y_lim_vcf = [0 10];
 
   y_lim_ilo = max([...
     max(testing_err_vec(7:9, start_skip:end), [], 'all'), ...
     max(recon_data(7:9, start_skip:end), [], 'all'), ...
     4
   ]);
-  y_lim_ilo = [0 extractdata(y_lim_ilo)];
+  %y_lim_ilo = [0 extractdata(y_lim_ilo)];
+  y_lim_ilo = [0 14];
 
   y_lim_action = [0 model.label_count + 1];
 
   % Misc calculations
   [~, max_action] = max(correct_action);
   action_data_len = size(action_data, 2);
-  action_x_range = 16*(1:action_data_len) ./ gp.Fs;
 
   action_event_time = max([1, floor(event_timestep / 16)]);
-  correct_action = repmat(max_action, size_B, action_data_len)';
+  correct_action = repmat(max_action, size_B, action_data_len);
   [~, no_action] = max(DTInfo.get_scenario_label("No events"));
-  correct_action(1:action_event_time, :) = no_action;
+  correct_action(:, 1:action_event_time) = no_action;
 
-  rec_hist = histcounts(extractdata(action_data(:, action_event_time:end)), 1:model.label_count+1) ./ action_data_len;
+  action_data_len = min([floor(max_len/16), action_data_len]);
+  action_data = action_data(:, 1:action_data_len);
+  correct_action = correct_action(:, 1:action_data_len);
+  action_x_range = 16*(1:action_data_len) ./ gp.Fs;
+
+  rec_hist = histcounts(extractdata(action_data(:, action_event_time:end)), 1:model.label_count+1);
+  rec_hist = rec_hist ./ sum(rec_hist);
 
   % Scale timestep to actual time
   event_timestep = event_timestep / gp.Fs;
@@ -208,15 +169,33 @@ function [fig] = demo_model(model, dt_info, num_cycles, predict_full_sequence)
   nexttile;
   plot(...
     action_x_range, action_data(1, :)', '.', ...
-    action_x_range, correct_action, '-');  %repmat(max_action, size_B, action_data_len)', '-');
+    action_x_range, correct_action', '-');
 
   xline(event_timestep, 'k--');
 
   xlim('tight');
   ylim(y_lim_action);
+
+  % TODO: Better y-axis labelling
+  action_names = [...
+    "Disconnect (bus fault)", ...
+    "Grid form (gen fault)", ...
+    "No action (IM load)", ...
+    "Ride thru (load fault)", ...
+    "No action", ...
+    "Grid form (PM loss)", ...
+  ];
+
+  ax = gca;
+  ax.YGrid = 'on';
+  ax.GridLineStyle = '--';
+  ax.YTick = 1:7;
+  ax.YTickLabel = action_names;
+  ax.YAxisLocation = 'right';
+
   title('Recommendations over time');
   xlabel('Time (s)');
-  ylabel('Action')
+  %ylabel('Action')
 
   % Plot iLo error
   nexttile();
@@ -241,13 +220,14 @@ function [fig] = demo_model(model, dt_info, num_cycles, predict_full_sequence)
 
   % Plot action recommendation histograms
   nexttile;
-  bar(rec_hist');
+  bar(rec_hist' .* 100);
   xline(max_action, 'k-');
-  yline(max(rec_hist), 'k:');
-  ylim([0 1]);
+  yline(max(rec_hist .* 100), 'k:');
+  ylim([0 100]);
   title('Recommendations');
   xlabel('Recommendation');
-  ylabel('Action');
+  ylabel('Post-event %');
+  ytickformat('percentage');
   legend('Recommended', 'Correct', ...
     'Location', 'northeastoutside');
 

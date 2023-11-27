@@ -9,6 +9,8 @@ function [ds_out] = dtinfo_ds_transform(ds_in)
   ds_in{1}(4:6, :) = ds_in{1}(4:6, :) ./ gp.vCf_err_scale;
   ds_in{1}(7:9, :) = ds_in{1}(7:9, :) ./ gp.iLo_err_scale;
 
+  ds_in{1}(19:21, :) = ds_in{1}(19:21, :) ./ gp.voltage_pu;
+
   % Initialize output data
   training_sequence_len = 2 * gp.min_sequence_len;
   data_len = size(ds_in{1}, 2);

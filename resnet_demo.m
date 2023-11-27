@@ -54,10 +54,10 @@ end
 % Get global parameters
 gp = global_params();
 
-%% Set up datastore
 % Initialize scenario labels
 num_actions = DTInfo.initialize_scenario_labels(training_data_dir);
 
+%% Set up datastore
 if (gpus_available > 0)
   mini_batch_size = floor(gp.samples_per_cycle / gp.min_sequence_len) * 64;
 else
@@ -76,9 +76,9 @@ ds_source = fileDatastore(ds_fileset, ...
 
 num_ds_files = size(ds_source.Files, 1);
 
-% Create an 80/20 split for training/validation
+% Create an 70/30 split for training/validation
 ds_shuffle = randperm(num_ds_files);
-ds_split_index = round(0.8 * num_ds_files);
+ds_split_index = round(0.7 * num_ds_files);
 
 training_ds = subset(ds_source, ds_shuffle(1:ds_split_index));
 validation_ds = subset(ds_source, ds_shuffle(ds_split_index+1:end));
@@ -128,7 +128,6 @@ else
 
   model_params.encoder_hidden_size = gp.num_features * 16;
   model_params.latent_dims = 6;
-  %model_params.latent_dims = gp.num_features;   % TODO: Not this!
 
   model_params.label_count = num_actions;
   
@@ -264,14 +263,14 @@ try
 
         % Check for best validation loss
         if isempty(training_params.best_validation_loss)
-          training_params.best_validation_loss = total_loss;
+          training_params.best_validation_loss = losses.action_loss;
 
-        elseif (total_loss < training_params.best_validation_loss)
+        elseif (losses.action_loss < training_params.best_validation_loss)
           % Save model
           best_validation_file = fullfile(output_dir, 'best_model.mat');
           save(best_validation_file, 'model');
       
-          training_params.best_validation_loss = total_loss;
+          training_params.best_validation_loss = losses.action_loss;
         end
       end
   
