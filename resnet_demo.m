@@ -263,14 +263,14 @@ try
 
         % Check for best validation loss
         if isempty(training_params.best_validation_loss)
-          training_params.best_validation_loss = total_loss;
+          training_params.best_validation_loss = losses.action_loss;
 
-        elseif (total_loss < training_params.best_validation_loss)
+        elseif (losses.action_loss < training_params.best_validation_loss)
           % Save model
           best_validation_file = fullfile(output_dir, 'best_model.mat');
           save(best_validation_file, 'model');
       
-          training_params.best_validation_loss = total_loss;
+          training_params.best_validation_loss = losses.action_loss;
         end
       end
   
