@@ -1,4 +1,4 @@
-function [model, training_params] = create_resnet(model_params)
+function [model, training_params, lgraphs] = create_resnet(model_params)
   %% Initialize parameters
   gp = global_params();
 
@@ -333,6 +333,11 @@ function [model, training_params] = create_resnet(model_params)
   model.latent_sampler = dlnetwork(latent_sampler_lgraph);
   model.decoder = dlnetwork(decoder_lgraph);
   model.action_recommender = dlnetwork(action_lgraph);
+
+  lgraphs.encoder = encoder_lgraph;
+  lgraphs.latent_sampler = latent_sampler_lgraph;
+  lgraphs.decoder = decoder_lgraph;
+  lgraphs.action_recommender = action_lgraph;
 
   %% Set default training parameters
   training_params.enc_grad_avg = [];
