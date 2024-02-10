@@ -9,6 +9,8 @@ A digital twin has four layers:
 - **Intelligent agent** - a model of the learning and decision making processes
 - **Data communications** - the exchange of information with other devices, systems, or operators
 
+![DigitalTwin](https://user-images.githubusercontent.com/54823750/206030301-8659904a-4962-45bf-97ef-81286e3971ca.png)
+
 The intelligent agent (or simply, 'the agent') contains the artificial intelligence and machine learning (AI/ML) features of the digital twin.  [MATLAB](https://www.mathworks.com/) and the [MATLAB Deep Learning Toolbox](https://www.mathworks.com/help/deeplearning/index.html) are being used to develop deep learning neural network models which will be implemented in the intelligent agent and deployed with the digital twin.
 
 The agent analyzes the behavior of the physical twin through a physics-based model.  This model is made available by the virtual twin, which continually updates the model in real-time using measurements from the physical twin.  In particular, the virtual twin provides an error vector to the agent.  The error vector quantifies the difference between the received measurements and the measurements predicted by the model.  Analysis of the error vector will help the agent gain an understanding of the physical twin and its interaction with its environment.
